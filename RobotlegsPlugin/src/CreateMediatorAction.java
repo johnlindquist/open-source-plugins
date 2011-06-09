@@ -15,8 +15,13 @@ import com.intellij.psi.PsiFile;
  */
 public class CreateMediatorAction extends AnAction
 {
+    /**
+     * Create a "Mediator" class if  the current class is a DisplayObjectContainer
+     * e.g., the current class is "FooContainer" then this would create "FooContainerMediator"
+     * @param e
+     */
 
-
+    //TODO: Add functionality to create from the instance under the caret
     public void actionPerformed(AnActionEvent e)
     {
         PsiFile psiFile = e.getData(DataKeys.PSI_FILE);
