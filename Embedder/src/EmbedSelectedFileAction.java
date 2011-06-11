@@ -22,16 +22,6 @@ import com.intellij.psi.PsiFile;
 public class EmbedSelectedFileAction extends AnAction
 {
 
-    @Override public void update(AnActionEvent e)
-    {
-        super.update(e);    //To change body of overridden methods use File | Settings | File Templates.
-    }
-
-    @Override public void beforeActionPerformedUpdate(AnActionEvent e)
-    {
-        super.beforeActionPerformedUpdate(e);    //To change body of overridden methods use File | Settings | File Templates.
-    }
-
     /**
      * Let's you select a file from the project view and add it as [Embed(source="selectedFile")]
      * to the currently open class in the editor
