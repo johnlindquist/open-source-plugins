@@ -19,7 +19,6 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiBinaryFile;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
-import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.impl.file.PsiFileImplUtil;
 
 import java.util.ArrayList;
@@ -71,7 +70,7 @@ public class EmbedSelectedFileAction extends AnAction
                     String relativePathFromRoot = VfsUtil.getRelativePath(image.getVirtualFile(), sourceRoot, separator);
                     Project project = e.getData(LangDataKeys.PROJECT);
                     //Because an image can start with a number (and a var can't), prepend the image name with "image_"
-                    String statement = "[Embed(source=\"/" + relativePathFromRoot + "\")] public var image_" + image.getName().replace(".jpg", "") + ":Class;";
+                    String statement = "[Embed(source=\"/" + relativePathFromRoot + "\")]\npublic var image_" + image.getName().replace(".jpg", "") + ":Class;";
                     ASTNode jsTreeFromText = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4);
                     final JSVarStatementImpl jsVarStatement = new JSVarStatementImpl(jsTreeFromText);
 
@@ -79,9 +78,7 @@ public class EmbedSelectedFileAction extends AnAction
                     {
                         @Override public void run()
                         {
-
                             jsClass.addBefore(jsVarStatement, jsClass.getConstructor());
-                            CodeStyleManager.getInstance(jsClass.getManager()).reformat(jsClass);
                         }
                     });
                 }
