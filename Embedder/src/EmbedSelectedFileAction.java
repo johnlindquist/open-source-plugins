@@ -12,7 +12,6 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.impl.EditorImpl;
 import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.vfs.VfsUtil;
@@ -45,6 +44,7 @@ public class EmbedSelectedFileAction extends AnAction
 
         if (image instanceof PsiBinaryFile)
         {
+            //The editor isn't in focus, so you have to find it to get the currently selected file ("targetFile")
             Editor editor = FileEditorManager.getInstance(e.getData(LangDataKeys.PROJECT)).getSelectedTextEditor();
             if (editor instanceof EditorImpl)
             {
@@ -59,17 +59,20 @@ public class EmbedSelectedFileAction extends AnAction
 
                 if (targetFile instanceof JSFile)
                 {
+                    //We need the psiFile to be able to access psi elements (constructor, methods, etc) and add/edit/update them
                     JSFile jsFile = (JSFile) targetFile;
                     final JSClass jsClass = JSPsiImplUtils.findClass(jsFile);
 
-                    Project project = e.getData(LangDataKeys.PROJECT);
 
-                    Module module = e.getData(LangDataKeys.MODULE);
+                    //This is the "src" dir of the image
                     VirtualFile sourceRoot = ModuleRootManager.getInstance(e.getData(LangDataKeys.MODULE)).getSourceRoots()[0];
                     char separator = '/';
+                    //Get the relative path from the image to the src dir
                     String relativePathFromRoot = VfsUtil.getRelativePath(image.getVirtualFile(), sourceRoot, separator);
+                    Project project = e.getData(LangDataKeys.PROJECT);
                     //Because an image can start with a number (and a var can't), prepend the image name with "image_"
-                    ASTNode jsTreeFromText = JSChangeUtil.createJSTreeFromText(project, "[Embed(source=\"/" + relativePathFromRoot + "\")] public var image_" + image.getName().replace(".jpg", "") + ":Class;", JavaScriptSupportLoader.ECMA_SCRIPT_L4);
+                    String statement = "[Embed(source=\"/" + relativePathFromRoot + "\")] public var image_" + image.getName().replace(".jpg", "") + ":Class;";
+                    ASTNode jsTreeFromText = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4);
                     final JSVarStatementImpl jsVarStatement = new JSVarStatementImpl(jsTreeFromText);
 
                     ApplicationManager.getApplication().runWriteAction(new Runnable()
