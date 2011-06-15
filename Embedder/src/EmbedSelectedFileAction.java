@@ -4,22 +4,19 @@ import com.intellij.lang.javascript.psi.JSFile;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.impl.JSChangeUtil;
 import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
-import com.intellij.lang.javascript.psi.impl.JSVarStatementImpl;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.impl.EditorImpl;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ModuleRootManager;
+import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
-import com.intellij.psi.impl.file.PsiFileImplUtil;
 import com.intellij.psi.util.PsiUtilBase;
 
 import java.util.ArrayList;
@@ -108,16 +105,9 @@ public class EmbedSelectedFileAction extends AnAction
                 {
                     //The editor isn't in focus, so you have to find it to get the currently selected file ("targetFile")
                     Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-                    if (editor instanceof EditorImpl)
+                    if (editor != null)
                     {
-                        //todo: I bet there's a Util to do this logic below for me... Otherwise, build my own
-                        VirtualFile virtualFile = ((EditorImpl) editor).getVirtualFile();
-                        ArrayList<VirtualFile> virtualFiles = new ArrayList<VirtualFile>();
-                        virtualFiles.add(virtualFile);
-                        PsiManager psiManager = psiFile.getManager();
-                        PsiFile[] psiFilesByVirtualFiles = PsiFileImplUtil.getPsiFilesByVirtualFiles(virtualFiles, psiManager);
-                        PsiFile targetFile = psiFilesByVirtualFiles[0]; //todo: determine if this would ever be incorrect... (getting the first psiFile result from its virtualFile)
-
+                        PsiFile targetFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
 
                         //replace with different strategies depending on file type
                         if (targetFile instanceof JSFile)
@@ -128,17 +118,22 @@ public class EmbedSelectedFileAction extends AnAction
 
 
                             //This is the "src" dir of the image
-                            VirtualFile sourceRoot = ModuleRootManager.getInstance(module).getSourceRoots()[0];
+                            VirtualFile sourceRoot = ProjectRootManager.getInstance(project).getFileIndex().getSourceRootForFile(targetFile.getVirtualFile());
                             char separator = '/';
                             //Get the relative path from the image to the src dir
                             String relativePathFromRoot = VfsUtil.getRelativePath(psiFile.getVirtualFile(), sourceRoot, separator);
                             //Because an image can start with a number (and a var can't), prepend the image name with "image_"
                             String statement = "[Embed(source=\"/" + relativePathFromRoot + "\")]\npublic var image_" + psiFile.getName().replace(".jpg", "") + ":Class;";
                             ASTNode jsTreeFromText = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4);
-                            final JSVarStatementImpl jsVarStatement = new JSVarStatementImpl(jsTreeFromText);
 
-
-                            jsClass.addBefore(jsVarStatement, jsClass.getConstructor());
+                            if (jsClass.getConstructor() != null)
+                            {
+                                jsClass.addBefore(jsTreeFromText.getPsi(), jsClass.getConstructor());
+                            }
+                            else
+                            {
+                                jsClass.add(jsTreeFromText.getPsi());
+                            }
                         }
                     }
 
