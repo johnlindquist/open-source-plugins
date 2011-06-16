@@ -117,13 +117,33 @@ public class EmbedSelectedFileAction extends AnAction
                             final JSClass jsClass = JSPsiImplUtils.findClass(jsFile);
 
 
-                            //This is the "src" dir of the image
-                            VirtualFile sourceRoot = ProjectRootManager.getInstance(project).getFileIndex().getSourceRootForFile(targetFile.getVirtualFile());
                             char separator = '/';
-                            //Get the relative path from the image to the src dir
-                            String relativePathFromRoot = VfsUtil.getRelativePath(psiFile.getVirtualFile(), sourceRoot, separator);
+                            VirtualFile commonAncestor = VfsUtil.getCommonAncestor(targetFile.getVirtualFile(), psiFile.getVirtualFile());
+                            //This is the "src" dir of the class
+                            VirtualFile sourceRoot = ProjectRootManager.getInstance(project).getFileIndex().getSourceRootForFile(targetFile.getVirtualFile());
+                            String imageFullPath = VfsUtil.getRelativePath(psiFile.getVirtualFile(), commonAncestor, separator);
+                            String pathToRepresentWithEllipses;
+                            pathToRepresentWithEllipses = VfsUtil.getRelativePath(sourceRoot, commonAncestor, separator);
+                            if (pathToRepresentWithEllipses == null) //this case occurs when the image is deeper in the structure than the class
+                            {
+                                pathToRepresentWithEllipses = "";
+                                imageFullPath = VfsUtil.getRelativePath(psiFile.getVirtualFile(), sourceRoot, separator);
+                            }
+
+
+                            String ellipses = pathToRepresentWithEllipses.replaceAll("[^/^\\/]+", "..");
+                            String relativePathFromRoot = null;
+                            if (!ellipses.equals(""))
+                            {
+                                relativePathFromRoot = "/" + ellipses + "/" + imageFullPath;
+                            }
+                            else
+                            {
+                                relativePathFromRoot = "/" + imageFullPath;
+                            }
+
                             //Because an image can start with a number (and a var can't), prepend the image name with "image_"
-                            String statement = "[Embed(source=\"/" + relativePathFromRoot + "\")]\npublic var image_" + psiFile.getName().replace(".jpg", "") + ":Class;";
+                            String statement = "[Embed(source=\"" + relativePathFromRoot + "\")]\npublic var image_" + psiFile.getName().replace(".jpg", "") + ":Class;";
                             ASTNode jsTreeFromText = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4);
 
                             if (jsClass.getConstructor() != null)
