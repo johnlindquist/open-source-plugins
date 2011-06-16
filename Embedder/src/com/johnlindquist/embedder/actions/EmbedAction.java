@@ -1,3 +1,5 @@
+package com.johnlindquist.embedder.actions;
+
 import com.intellij.lang.ASTNode;
 import com.intellij.lang.javascript.JavaScriptSupportLoader;
 import com.intellij.lang.javascript.psi.JSFile;
@@ -30,7 +32,7 @@ import java.util.List;
  */
 //todo: Support formats other than image? Needs to read docs on every possible Embed type
 //todo: Consider adding an image browser to select images (would have a nice "wow" factor, but probably more effort than it's worth)
-public class EmbedSelectedFileAction extends AnAction
+public class EmbedAction extends AnAction
 {
 
     /**

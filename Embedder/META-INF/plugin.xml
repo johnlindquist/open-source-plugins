@@ -1,31 +1,40 @@
-<idea-plugin version="2">
-  <name>Image Embedder</name>
-  <description>Image Embedder allows you to selection a file, multiple files, or a directory of files and embed them in the currently open ActionScript file.</description>
-  <version>0.1</version>
-  <vendor>johnlindquist.com</vendor>
-  <idea-version since-build="8000"/>
+<idea-plugin url="https://github.com/johnlindquist/open-source-plugins" version="2">
+    <name>Embedder</name>
+
+    <description>Embedder allows you to selection a file, multiple files, or a directory of files and embed them in the
+        currently open ActionScript file. If you run into any problems, please
+        leave descriptive comments on my github page:
+        https://github.com/johnlindquist/open-source-plugins
+    </description>
+    <change-notes>0.1 Initial Release: Adding support for ActionScript files.</change-notes>
+    <version>0.1</version>
+    <category>ActionScript</category>
+    <vendor url="http://johnlindquist.com" email="johnlindquist@gmail.com">johnlindquist</vendor>
+
+
+    <idea-version since-build="8000"/>
 
 
     <depends>JavaScript</depends>
 
-  <application-components>
-    <!-- Add your application components here -->
-  </application-components>
+    <application-components>
+        <!-- Add your application components here -->
+    </application-components>
 
-  <project-components>
-    <!-- Add your project components here -->
-  </project-components>
+    <project-components>
+        <!-- Add your project components here -->
+    </project-components>
 
-  <actions>
-    <!-- Add your actions here -->
-      <action id="EmbedSelectedFileAction" class="EmbedSelectedFileAction" text="Embed Images"
-              description="Embeds the select images or directory of images">
-          <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt 8"/>
-          <add-to-group group-id="ToolsMenu" anchor="last"/>
-      </action>
-  </actions>
+    <actions>
+        <!-- Add your actions here -->
+        <action id="EmbedAction" class="com.johnlindquist.embedder.actions.EmbedAction" text="Embed"
+                description="Embeds the selected files or directory of files">
+            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt E"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
 
-  <extensions defaultExtensionNs="com.intellij">
-    <!-- Add your extensions here -->
-  </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
 </idea-plugin>
