@@ -1,9 +1,10 @@
 <idea-plugin version="2">
-  <name>Plugin name here</name>
-  <description>short description of the plugin</description>
-  <version>1.0</version>
-  <vendor>YourCompany</vendor>
+  <name>Image Embedder</name>
+  <description>Image Embedder allows you to selection a file, multiple files, or a directory of files and embed them in the currently open ActionScript file.</description>
+  <version>0.1</version>
+  <vendor>johnlindquist.com</vendor>
   <idea-version since-build="8000"/>
+
 
     <depends>JavaScript</depends>
 
@@ -17,8 +18,8 @@
 
   <actions>
     <!-- Add your actions here -->
-      <action id="EmbedSelectedFileAction" class="EmbedSelectedFileAction" text="EmbedSelectedFileAction"
-              description="Embeds the selected file">
+      <action id="EmbedSelectedFileAction" class="EmbedSelectedFileAction" text="Embed Images"
+              description="Embeds the select images or directory of images">
           <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt 8"/>
           <add-to-group group-id="ToolsMenu" anchor="last"/>
       </action>

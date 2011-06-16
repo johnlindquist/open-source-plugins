@@ -20,6 +20,7 @@ import com.intellij.psi.*;
 import com.intellij.psi.util.PsiUtilBase;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -27,6 +28,8 @@ import java.util.List;
  * Date: 6/11/11
  * Time: 10:29 AM
  */
+//todo: Support formats other than image? Needs to read docs on every possible Embed type
+//todo: Consider adding an image browser to select images (would have a nice "wow" factor, but probably more effort than it's worth)
 public class EmbedSelectedFileAction extends AnAction
 {
 
@@ -84,10 +87,7 @@ public class EmbedSelectedFileAction extends AnAction
     private void addAllPsiFilesFromSubdirectories(PsiDirectory psiDirectory, List<PsiFile> psiFiles)
     {
         PsiFile[] psiDirectoryFiles = psiDirectory.getFiles();
-        for (PsiFile psiDirectoryFile : psiDirectoryFiles)
-        {
-            psiFiles.add(psiDirectoryFile);
-        }
+        Collections.addAll(psiFiles, psiDirectoryFiles);
 
         for (PsiDirectory psiSubDirectory : psiDirectory.getSubdirectories())
         {
@@ -109,7 +109,7 @@ public class EmbedSelectedFileAction extends AnAction
                     {
                         PsiFile targetFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
 
-                        //replace with different strategies depending on file type
+                        //todo: replace with different strategies depending on file type, e.g. XmlBackedJSClassImpl for MXML
                         if (targetFile instanceof JSFile)
                         {
                             //We need the psiFile to be able to access psi elements (constructor, methods, etc) and add/edit/update them
@@ -117,30 +117,7 @@ public class EmbedSelectedFileAction extends AnAction
                             final JSClass jsClass = JSPsiImplUtils.findClass(jsFile);
 
 
-                            char separator = '/';
-                            VirtualFile commonAncestor = VfsUtil.getCommonAncestor(targetFile.getVirtualFile(), psiFile.getVirtualFile());
-                            //This is the "src" dir of the class
-                            VirtualFile sourceRoot = ProjectRootManager.getInstance(project).getFileIndex().getSourceRootForFile(targetFile.getVirtualFile());
-                            String imageFullPath = VfsUtil.getRelativePath(psiFile.getVirtualFile(), commonAncestor, separator);
-                            String pathToRepresentWithEllipses;
-                            pathToRepresentWithEllipses = VfsUtil.getRelativePath(sourceRoot, commonAncestor, separator);
-                            if (pathToRepresentWithEllipses == null) //this case occurs when the image is deeper in the structure than the class
-                            {
-                                pathToRepresentWithEllipses = "";
-                                imageFullPath = VfsUtil.getRelativePath(psiFile.getVirtualFile(), sourceRoot, separator);
-                            }
-
-
-                            String ellipses = pathToRepresentWithEllipses.replaceAll("[^/^\\/]+", "..");
-                            String relativePathFromRoot = null;
-                            if (!ellipses.equals(""))
-                            {
-                                relativePathFromRoot = "/" + ellipses + "/" + imageFullPath;
-                            }
-                            else
-                            {
-                                relativePathFromRoot = "/" + imageFullPath;
-                            }
+                            String relativePathFromRoot = getRelativePathFromSourceRoot(targetFile, psiFile, project);
 
                             //Because an image can start with a number (and a var can't), prepend the image name with "image_"
                             String statement = "[Embed(source=\"" + relativePathFromRoot + "\")]\npublic var image_" + psiFile.getName().replace(".jpg", "") + ":Class;";
@@ -160,5 +137,37 @@ public class EmbedSelectedFileAction extends AnAction
                 }
             }
         });
+    }
+
+    //todo: I'm fairly confident this covers all pathing scenarios, but it needs real-life user testing.
+    private String getRelativePathFromSourceRoot(PsiFile targetFile, PsiFile psiFile, Project project)
+    {
+        char separator = '/';
+        VirtualFile classFile = targetFile.getVirtualFile();
+        VirtualFile imageFile = psiFile.getVirtualFile();
+        VirtualFile commonAncestor = VfsUtil.getCommonAncestor(classFile, imageFile);
+        //This is the "src" dir of the class
+        VirtualFile sourceRoot = ProjectRootManager.getInstance(project).getFileIndex().getSourceRootForFile(classFile);
+        String imageFullPath = VfsUtil.getRelativePath(imageFile, commonAncestor, separator);
+        String pathToRepresentWithEllipses;
+        pathToRepresentWithEllipses = VfsUtil.getRelativePath(sourceRoot, commonAncestor, separator);
+        if (pathToRepresentWithEllipses == null) //this case occurs when the image is deeper in the file structure than the class
+        {
+            pathToRepresentWithEllipses = "";
+            imageFullPath = VfsUtil.getRelativePath(imageFile, sourceRoot, separator);
+        }
+
+
+        String ellipses = pathToRepresentWithEllipses.replaceAll("[^/^\\/]+", "..");
+        String relativePathFromRoot = null;
+        if (!ellipses.equals(""))
+        {
+            relativePathFromRoot = "/" + ellipses + "/" + imageFullPath;
+        }
+        else
+        {
+            relativePathFromRoot = "/" + imageFullPath;
+        }
+        return relativePathFromRoot;
     }
 }
