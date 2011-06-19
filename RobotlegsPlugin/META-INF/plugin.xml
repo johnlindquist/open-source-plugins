@@ -1,4 +1,5 @@
-<idea-plugin version="2">
+<idea-plugin version="2" xmlns:xi="http://www.w3.org/2001/XInclude">
+    <id>com.johnlindquist.robotlegs</id>
     <name>Robotlegs Support</name>
     <description>Supporting the Robotlegs framework (http://robotlegs.org)</description>
     <version>0.1</version>
@@ -6,6 +7,7 @@
     <idea-version since-build="8000"/>
 
     <depends>JavaScript</depends>
+    <depends>com.intellij.modules.lang</depends>
 
     <application-components>
         <!-- Add your application components here -->
@@ -15,14 +17,23 @@
         <!-- Add your project components here -->
     </project-components>
 
+    <extensions defaultExtensionNs="com.intellij">
+    </extensions>
+
     <actions>
         <!-- Add your actions here -->
-        <action id="CreateMediatorAction" class="CreateMediatorAction" text="Create Mediator" description="Creates a Mediator from a DisplayObjectContainer">
+        <action id="CreateMediatorAction" class="actions.CreateMediatorAction" text="Create Mediator"
+                description="Creates a Mediator from a DisplayObjectContainer">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="CreateEventAndCommandPair" class="runnables.CreateEventAndCommandPairAction"
+                text="CreateEventAndCommandPairAction" description="Creates and Event and a Command">
+            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt 0"/>
+        </action>
+        <action id="ShowFlowAction" class="actions.ShowFlowAction" text="ShowFlowAction"
+                description="Show the flow of the selected instance">
+            <add-to-group group-id="ToolsMenu" anchor="first"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt 7"/>
+        </action>
     </actions>
-
-    <extensions defaultExtensionNs="com.intellij">
-        <!-- Add your extensions here -->
-    </extensions>
 </idea-plugin>
