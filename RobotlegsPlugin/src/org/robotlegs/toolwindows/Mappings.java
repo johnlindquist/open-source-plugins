@@ -75,13 +75,17 @@ public class Mappings
             //move to args: mediatorMap.mapView(View, Mediator) -> (View, Mediator)
             PsiElement[] children = context.getChildren()[1].getChildren();
 
-            PsiNamedElement key = (PsiNamedElement) ((PsiReference) children[0]).resolve();
-            PsiNamedElement value = (PsiNamedElement) ((PsiReference) children[1]).resolve();
+            Vector<PsiNamedElement> psiElements = new Vector<PsiNamedElement>();
 
-            //map the view to the mediator
-            Vector<PsiNamedElement> psiElements = new Vector<PsiNamedElement>(2);
+            PsiNamedElement key = (PsiNamedElement) ((PsiReference) children[0]).resolve();
             psiElements.add(key);
-            psiElements.add(value);
+
+            PsiNamedElement value = null;
+            if(children.length > 1)
+            {
+                value = (PsiNamedElement) ((PsiReference) children[1]).resolve();
+                psiElements.add(value);
+            }
 
             vectorOfMappings.add(psiElements);
         }
@@ -98,6 +102,8 @@ public class Mappings
                 synchronized (usages)
                 {
                     usages.add(((UsageInfo2UsageAdapter) usage));
+                    String name = ((UsageInfo2UsageAdapter) usage).getElement().getText();
+                    System.out.print("found: " + name + "\n");
                 }
                 return true;
             }

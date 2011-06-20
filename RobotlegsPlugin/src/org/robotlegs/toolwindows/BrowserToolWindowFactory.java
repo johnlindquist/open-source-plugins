@@ -1,9 +1,15 @@
 package org.robotlegs.toolwindows;
 
 import com.intellij.lang.javascript.psi.JSFile;
+import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.ScrollType;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
@@ -32,95 +38,149 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
     private static final String COMMAND_MAP = "ICommandMap";
     private static final String MAP_EVENT = "mapEvent";
 
+    private static final String INJECTOR = "IInjector";
+    private static final String MAP_SINGLETON = "mapSingleton";
+
+    //tab names
+    private static final String MEDIATOR_MAP_NAME = "MediatorMap";
+    private static final String COMMAND_MAP_NAME = "CommandMap";
+    private static final String SINGLETON_MAP_NAME = "SingletonMap";
+
     @Override public void createToolWindowContent(final Project project, ToolWindow toolWindow)
     {
-
         ContentManager contentManager = toolWindow.getContentManager();
 
-        String[] columnNames = {"File", "View", "Mediator"};
-        final Vector<Vector> rows = new Vector<Vector>();
+        Mappings mappings = new Mappings();
 
-
-        final Mappings mappings = new Mappings();
-
-        final HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mediatorMappings = mappings.getMappingByClassAndFunctionProject(project, MEDIATOR_MAP, MAP_VIEW);
+        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mediatorMappings = mappings.getMappingByClassAndFunctionProject(project, MEDIATOR_MAP, MAP_VIEW);
         HashMap<JSFile, Vector<Vector<PsiNamedElement>>> commandMappings = mappings.getMappingByClassAndFunctionProject(project, COMMAND_MAP, MAP_EVENT);
+        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> singletonMappings = mappings.getMappingByClassAndFunctionProject(project, INJECTOR, MAP_SINGLETON);
 
-        Set<JSFile> mediatorFiles = mediatorMappings.keySet();
-
-        for (JSFile file : mediatorFiles)
-        {
-            System.out.print(file.getName() + " has mappings: \n");
-            Vector<Vector<PsiNamedElement>> mapList = mediatorMappings.get(file);
-            for (Vector<PsiNamedElement> mapping : mapList)
-            {
-                System.out.print("\t" + mapping.get(0).getName() + " to " + mapping.get(1).getName() + "\n");
-                Vector<String> column = new Vector<String>();
-
-                column.add(file.getName());
-                column.add(mapping.get(0).getName());
-                column.add(mapping.get(1).getName());
-                rows.add(column);
-            }
-
-        }
-
-        Set<JSFile> commandFiles = commandMappings.keySet();
-
-        for (JSFile file : commandFiles)
-        {
-            System.out.print(file.getName() + " has mappings: \n");
-
-            Vector<Vector<PsiNamedElement>> mapList = commandMappings.get(file);
-            for (Vector<PsiNamedElement> mapping : mapList)
-            {
-                System.out.print("\t" + mapping.get(0).getName() + " to " + mapping.get(1).getName() + "\n");
-                Vector<String> column = new Vector<String>();
-
-                column.add(file.getName());
-                column.add(mapping.get(0).getName());
-                column.add(mapping.get(1).getName());
-                rows.add(column);
-            }
-        }
+        Content mediatorContent = createTable(project, contentManager, mediatorMappings, MEDIATOR_MAP_NAME);
+        Content commandContent = createTable(project, contentManager, commandMappings, COMMAND_MAP_NAME);
+        Content singletonContent = createTable(project, contentManager, singletonMappings, SINGLETON_MAP_NAME);
 
 
-        AbstractTableModel model = new AbstractTableModel()
-        {
+        contentManager.setSelectedContent(commandContent);
 
-            @Override public int getRowCount()
-            {
-                return rows.size();
-            }
+        ((JBTable) commandContent.getComponent()).setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    }
 
-            @Override public int getColumnCount()
-            {
-                return 3;
-            }
-
-            @Override public Object getValueAt(int rowIndex, int columnIndex)
-            {
-                return rows.get(rowIndex).get(columnIndex);
-            }
-        };
-        final JBTable jbTable = new JBTable(model);
-
-//        Content content = ContentFactory.SERVICE.getInstance().createContent(jbTable, "", false);
-        Content content = ContentFactory.SERVICE.getInstance().createContent(jbTable, "", false);
-
-
+    private Content createTable(Project project, ContentManager contentManager, HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mappings, String tableName)
+    {
+        Set<JSFile> files = mappings.keySet();
+        final Vector<Vector> names = new Vector<Vector>();
+        final Vector<Vector> dataRows = new Vector<Vector>();
+        prepareTableData(mappings, dataRows, names, files);
+        AbstractTableModel tableModel = new MyAbstractTableModel(names);
+        final JBTable table = new JBTable(tableModel);
+        table.setCellSelectionEnabled(true);
+        Content content = ContentFactory.SERVICE.getInstance().createContent(table, tableName, false);
         contentManager.addContent(content);
-        contentManager.setSelectedContent(content);
+        table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
 
-        jbTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        return content;
+    }
 
-        jbTable.addMouseListener(new MouseAdapter()
+    private void prepareTableData(HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mappings, Vector<Vector> dataRows, Vector<Vector> names, Set<JSFile> files)
+    {
+        for (JSFile file : files)
         {
-            @Override public void mouseClicked(MouseEvent e)
+            System.out.print(file.getName() + " has mappings: \n");
+
+            Vector<Vector<PsiNamedElement>> mapList = mappings.get(file);
+            for (Vector<PsiNamedElement> mapping : mapList)
             {
-                Object valueAt = jbTable.getValueAt(jbTable.rowAtPoint(e.getPoint()), jbTable.columnAtPoint(e.getPoint()));
-                System.out.print(valueAt + "\n");
+                String name;
+                PsiNamedElement value = null;
+                if (mapping.size() > 1)
+                {
+                    value = mapping.get(1);
+                }
+                if (value != null) //todo: consider null object pattern
+                {
+                    name = value.getName();
+                }
+                else
+                {
+                    name = "Nothing";
+                }
+
+                System.out.print("\t" + mapping.get(0).getName() + " to " + name + "\n");
+                Vector<String> column = new Vector<String>();
+                Vector<PsiElement> dataColumn = new Vector<PsiElement>();
+
+                column.add(file.getName());
+                dataColumn.add(JSPsiImplUtils.findClass(file));
+
+                column.add(mapping.get(0).getName());
+                dataColumn.add(mapping.get(0));
+
+                if (value != null)
+                {
+                    column.add(value.getName());
+                    dataColumn.add(value);
+                }
+                names.add(column);
+                dataRows.add(dataColumn);
             }
-        });
+        }
+    }
+
+    private static class MyMouseAdapter extends MouseAdapter
+    {
+        private final JBTable table;
+        private final Vector<Vector> dataRows;
+        private final Project project;
+
+        public MyMouseAdapter(JBTable table, Vector<Vector> dataRows, Project project)
+        {
+            this.table = table;
+            this.dataRows = dataRows;
+            this.project = project;
+        }
+
+        @Override public void mouseClicked(MouseEvent e)
+        {
+            int row = table.rowAtPoint(e.getPoint());
+            int column = table.columnAtPoint(e.getPoint());
+            Object valueAt = table.getValueAt(row, column);
+            System.out.print(valueAt + "\n");
+
+            PsiElement psiElement = (PsiElement) dataRows.get(row).get(column);
+            VirtualFile virtualFile = psiElement.getContainingFile().getVirtualFile();
+            FileEditorManager.getInstance(project).openFile(virtualFile, true);
+            Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+            selectedTextEditor.getCaretModel().moveToOffset(psiElement.getTextOffset());
+            selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+        }
+    }
+
+    private static class MyAbstractTableModel extends AbstractTableModel
+    {
+
+        private final Vector<Vector> rowNames;
+
+        public MyAbstractTableModel(Vector<Vector> rowNames)
+        {
+            this.rowNames = rowNames;
+        }
+
+        @Override public int getRowCount()
+        {
+            return rowNames.size();
+        }
+
+        @Override public int getColumnCount()
+        {
+            return rowNames.get(0).size();
+        }
+
+        @Override public Object getValueAt(int rowIndex, int columnIndex)
+        {
+
+            Vector rows = rowNames.get(rowIndex);
+            return rows.get(columnIndex);
+        }
     }
 }
