@@ -18,6 +18,8 @@
     </project-components>
 
     <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Robotlegs" anchor="right" icon="/icons/Robotlegs16x16.gif"
+                    factoryClass="org.robotlegs.toolwindows.BrowserToolWindowFactory"/>
     </extensions>
 
     <actions>

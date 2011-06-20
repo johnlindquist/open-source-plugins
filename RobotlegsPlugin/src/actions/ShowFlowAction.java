@@ -33,13 +33,35 @@ public class ShowFlowAction extends AnAction
     public void actionPerformed(AnActionEvent e)
     {
         Project project = e.getData(LangDataKeys.PROJECT);
+        buildMappingData(project, "IMediatorMap", "mapView");
+
+//        Collection<JSClass> contextSubclasses = JSInheritanceUtil.findDirectSubClasses(jsClass, false);
+//        JSClass next = contextSubclasses.iterator().next();
+//        Collection<JSClass> declaringClasses = JSInheritanceUtil.findDeclaringClasses(mediatorMap);//finds a class that declares mediatorMape
+//        FindUsagesHandler usagesOfPsiElement = findUsagesOfPsiElement(mapView, project);
+//        PsiElement[] primaryElements = usagesOfPsiElement.getPrimaryElements();
+//        JSQualifiedNamedElement next = JSResolveUtil.findElementsByName("Context", project, GlobalSearchScope.allScope(project)).iterator().next();
+//        JSChangeUtil.createJSTreeFromText(project, "")
+//        JSResolveUtil.getClassOfContext() //this should be useful to find the commands that reference mediatorMap
+
+//        FindUsagesHandler findUsagesHandler = findUsagesOfPsiElement(psiElement, project);
+//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1] //getting args list of a mapView call
+//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1].getChildren()[0] //first arg
+//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1].getChildren()[1] //second arg
+//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1].getChildren()[0].resolve() //the class of the first arg
+
+//        PsiElement[] psiElements = findUsagesHandler.getPrimaryElements();
+    }
+
+    private void buildMappingData(Project project, String className, String functionName)
+    {
         PsiDocumentManager.getInstance(project).commitAllDocuments();
 
         //What's a better way to find a JSClass from a String? I want to find: org.robotlegs.core.IMediatorMap
-        JSClass jsClass = (JSClass) JSResolveUtil.findElementsByName("IMediatorMap", project, GlobalSearchScope.allScope(project)).iterator().next();
+        JSClass jsClass = (JSClass) JSResolveUtil.findElementsByName(className, project, GlobalSearchScope.allScope(project)).iterator().next();
 
         //Find the "mapView" function on IMediatorMap so we can find where it's used throughout the app
-        JSFunction mapView = jsClass.findFunctionByName("mapView");
+        JSFunction mapView = jsClass.findFunctionByName(functionName);
 
         //Find all the usages of "mapView" and return then as UsageInfo
         List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(mapView, project);
@@ -62,23 +84,6 @@ public class ShowFlowAction extends AnAction
                 }
             }
         }
-
-//        Collection<JSClass> contextSubclasses = JSInheritanceUtil.findDirectSubClasses(jsClass, false);
-//        JSClass next = contextSubclasses.iterator().next();
-//        Collection<JSClass> declaringClasses = JSInheritanceUtil.findDeclaringClasses(mediatorMap);//finds a class that declares mediatorMape
-//        FindUsagesHandler usagesOfPsiElement = findUsagesOfPsiElement(mapView, project);
-//        PsiElement[] primaryElements = usagesOfPsiElement.getPrimaryElements();
-//        JSQualifiedNamedElement next = JSResolveUtil.findElementsByName("Context", project, GlobalSearchScope.allScope(project)).iterator().next();
-//        JSChangeUtil.createJSTreeFromText(project, "")
-//        JSResolveUtil.getClassOfContext() //this should be useful to find the commands that reference mediatorMap
-
-//        FindUsagesHandler findUsagesHandler = findUsagesOfPsiElement(psiElement, project);
-//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1] //getting args list of a mapView call
-//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1].getChildren()[0] //first arg
-//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1].getChildren()[1] //second arg
-//        ((UsageInfo2UsageAdapter)usage).getElement().getContext().getChildren()[1].getChildren()[0].resolve() //the class of the first arg
-
-//        PsiElement[] psiElements = findUsagesHandler.getPrimaryElements();
     }
 
     private HashMap<JSFile, HashMap<JSClass, JSClass>> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> mapViewUsages)
