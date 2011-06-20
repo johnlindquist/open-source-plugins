@@ -1,18 +1,22 @@
 package org.robotlegs.toolwindows;
 
 import com.intellij.lang.javascript.psi.JSFile;
-import com.intellij.lang.javascript.psi.JSVariable;
-import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
+import com.intellij.psi.PsiNamedElement;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.ui.table.JBTable;
 
+import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
-import java.util.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.Vector;
 
 /**
  * User: John Lindquist
@@ -39,52 +43,44 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
         final Mappings mappings = new Mappings();
 
-        final HashMap<JSFile, List<HashMap<JSClass, JSClass>>> mediatorMappings = mappings.getMappingByClassAndFunctionProject(project, MEDIATOR_MAP, MAP_VIEW);
-        HashMap<JSFile, List<HashMap<JSVariable, JSClass>>> commandMappings = mappings.getMappingByClassAndFunctionProject(project, COMMAND_MAP, MAP_EVENT);
+        final HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mediatorMappings = mappings.getMappingByClassAndFunctionProject(project, MEDIATOR_MAP, MAP_VIEW);
+        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> commandMappings = mappings.getMappingByClassAndFunctionProject(project, COMMAND_MAP, MAP_EVENT);
 
-        Set<JSFile> keys = mediatorMappings.keySet();
+        Set<JSFile> mediatorFiles = mediatorMappings.keySet();
 
-        for (JSFile key : keys)
+        for (JSFile file : mediatorFiles)
         {
-            Vector<String> column = new Vector<String>();
-            System.out.print(key.getName() + " has mappings: \n");
-            List<HashMap<JSClass, JSClass>> mapList = mediatorMappings.get(key);
-            for (HashMap<JSClass, JSClass> mapping : mapList)
+            System.out.print(file.getName() + " has mappings: \n");
+            Vector<Vector<PsiNamedElement>> mapList = mediatorMappings.get(file);
+            for (Vector<PsiNamedElement> mapping : mapList)
             {
-                Set<JSClass> mappingKeys = mapping.keySet();
-                for (JSClass mappingKey : mappingKeys)
-                {
-                    System.out.print("\t" + mappingKey.getName() + " to " + mapping.get(mappingKey).getName() + "\n");
-                    column.add(key.getName());
-                    column.add(mappingKey.getName());
-                    column.add(mapping.get(mappingKey).getName());
-                    rows.add(column);
+                System.out.print("\t" + mapping.get(0).getName() + " to " + mapping.get(1).getName() + "\n");
+                Vector<String> column = new Vector<String>();
 
-                }
+                column.add(file.getName());
+                column.add(mapping.get(0).getName());
+                column.add(mapping.get(1).getName());
+                rows.add(column);
             }
 
         }
 
-        Set<JSFile> commandMapKeys = commandMappings.keySet();
+        Set<JSFile> commandFiles = commandMappings.keySet();
 
-        for (JSFile key : commandMapKeys)
+        for (JSFile file : commandFiles)
         {
-            Vector<String> column = new Vector<String>();
-            System.out.print(key.getName() + " has mappings: \n");
+            System.out.print(file.getName() + " has mappings: \n");
 
-            List<HashMap<JSVariable, JSClass>> mapList = commandMappings.get(key);
-            for (HashMap<JSVariable, JSClass> mapping : mapList)
+            Vector<Vector<PsiNamedElement>> mapList = commandMappings.get(file);
+            for (Vector<PsiNamedElement> mapping : mapList)
             {
-                Set<JSVariable> mappingKeys = mapping.keySet();
-                for (JSVariable mappingKey : mappingKeys)
-                {
-                    System.out.print("\t" + mappingKey.getName() + " to " + mapping.get(mappingKey).getName() + "\n");
-                    column.add(key.getName());
-                    column.add(mappingKey.getName());
-                    column.add(mapping.get(mappingKey).getName());
-                    rows.add(column);
+                System.out.print("\t" + mapping.get(0).getName() + " to " + mapping.get(1).getName() + "\n");
+                Vector<String> column = new Vector<String>();
 
-                }
+                column.add(file.getName());
+                column.add(mapping.get(0).getName());
+                column.add(mapping.get(1).getName());
+                rows.add(column);
             }
         }
 
@@ -107,10 +103,24 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
                 return rows.get(rowIndex).get(columnIndex);
             }
         };
-        JBTable jbTable = new JBTable(model);
+        final JBTable jbTable = new JBTable(model);
 
+//        Content content = ContentFactory.SERVICE.getInstance().createContent(jbTable, "", false);
         Content content = ContentFactory.SERVICE.getInstance().createContent(jbTable, "", false);
+
+
         contentManager.addContent(content);
         contentManager.setSelectedContent(content);
+
+        jbTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        jbTable.addMouseListener(new MouseAdapter()
+        {
+            @Override public void mouseClicked(MouseEvent e)
+            {
+                Object valueAt = jbTable.getValueAt(jbTable.rowAtPoint(e.getPoint()), jbTable.columnAtPoint(e.getPoint()));
+                System.out.print(valueAt + "\n");
+            }
+        });
     }
 }

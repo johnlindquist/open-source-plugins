@@ -9,10 +9,7 @@ import com.intellij.lang.javascript.psi.JSFunction;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiReference;
+import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.usages.Usage;
 import com.intellij.usages.UsageInfo2UsageAdapter;
@@ -22,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Vector;
 
 /**
  * User: John Lindquist
@@ -34,7 +32,7 @@ public class Mappings
     {
     }
 
-    public <K, V> HashMap<JSFile, List<HashMap<K, V>>> getMappingByClassAndFunctionProject(Project project, String className, String functionName)
+    public <K, V> HashMap<JSFile, Vector<Vector<PsiNamedElement>>> getMappingByClassAndFunctionProject(Project project, String className, String functionName)
     {
         PsiDocumentManager.getInstance(project).commitAllDocuments();
 
@@ -48,26 +46,27 @@ public class Mappings
         List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(mapView, project);
 
         //Create a map of the first param (the "view") to the second param (the "mediator")
-        HashMap<JSFile, List<HashMap<K, V>>> fileToListOfMappings = getMappedElementsFromUsage(mapViewUsages);
+        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> fileToListOfMappings = getMappedElementsFromUsage(mapViewUsages);
 
         return fileToListOfMappings;
     }
 
 
-    private <K, V> HashMap<JSFile, List<HashMap<K, V>>> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> functionUsages)
+    private HashMap<JSFile, Vector<Vector<PsiNamedElement>>> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> functionUsages)
     {
-        HashMap fileToListOfMappings = new HashMap<JSFile, List<HashMap<JSClass, JSClass>>>();
+        HashMap fileToListOfMappings = new HashMap<JSFile, Vector<Vector<PsiElement>>>();
 
         for (UsageInfo2UsageAdapter functionUsage : functionUsages)
         {
             PsiFile containingFile = functionUsage.getElement().getContainingFile();
 
-            List<HashMap<PsiElement, PsiElement>> listOfMappings = (List<HashMap<PsiElement, PsiElement>>) fileToListOfMappings.get(containingFile);
+            Vector<Vector<PsiNamedElement>> vectorOfMappings = (Vector<Vector<PsiNamedElement>>) fileToListOfMappings.get(containingFile);
 
-            if (listOfMappings == null)
+
+            if (vectorOfMappings == null)
             {
-                listOfMappings = new ArrayList<HashMap<PsiElement, PsiElement>>();
-                fileToListOfMappings.put(containingFile, listOfMappings);
+                vectorOfMappings = new Vector<Vector<PsiNamedElement>>();
+                fileToListOfMappings.put(containingFile, vectorOfMappings);
             }
 
             //move "up" once: mediatorMap.mapView -> mediatorMap.mapView(View, Mediator)
@@ -76,13 +75,15 @@ public class Mappings
             //move to args: mediatorMap.mapView(View, Mediator) -> (View, Mediator)
             PsiElement[] children = context.getChildren()[1].getChildren();
 
-            PsiElement key = ((PsiReference) children[0]).resolve();
-            PsiElement value = ((PsiReference) children[1]).resolve();
+            PsiNamedElement key = (PsiNamedElement) ((PsiReference) children[0]).resolve();
+            PsiNamedElement value = (PsiNamedElement) ((PsiReference) children[1]).resolve();
 
             //map the view to the mediator
-            HashMap<PsiElement, PsiElement> keyToValueMap = new HashMap<PsiElement, PsiElement>();
-            keyToValueMap.put(key, value);
-            listOfMappings.add(keyToValueMap);
+            Vector<PsiNamedElement> psiElements = new Vector<PsiNamedElement>(2);
+            psiElements.add(key);
+            psiElements.add(value);
+
+            vectorOfMappings.add(psiElements);
         }
         return fileToListOfMappings;
     }
