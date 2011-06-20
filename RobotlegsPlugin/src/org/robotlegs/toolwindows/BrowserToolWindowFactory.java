@@ -1,7 +1,5 @@
 package org.robotlegs.toolwindows;
 
-import com.intellij.lang.javascript.psi.JSFile;
-import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -10,18 +8,18 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.ui.table.JBTable;
+import com.intellij.usages.UsageInfo2UsageAdapter;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.HashMap;
-import java.util.Set;
 import java.util.Vector;
 
 /**
@@ -52,9 +50,9 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
         Mappings mappings = new Mappings();
 
-        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mediatorMappings = mappings.getMappingByClassAndFunctionProject(project, MEDIATOR_MAP, MAP_VIEW);
-        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> commandMappings = mappings.getMappingByClassAndFunctionProject(project, COMMAND_MAP, MAP_EVENT);
-        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> singletonMappings = mappings.getMappingByClassAndFunctionProject(project, INJECTOR, MAP_SINGLETON);
+        Vector<UsageMapping> mediatorMappings = mappings.getMappingByClassAndFunctionProject(project, MEDIATOR_MAP, MAP_VIEW);
+        Vector<UsageMapping> commandMappings = mappings.getMappingByClassAndFunctionProject(project, COMMAND_MAP, MAP_EVENT);
+        Vector<UsageMapping> singletonMappings = mappings.getMappingByClassAndFunctionProject(project, INJECTOR, MAP_SINGLETON);
 
         Content mediatorContent = createTable(project, contentManager, mediatorMappings, MEDIATOR_MAP_NAME);
         Content commandContent = createTable(project, contentManager, commandMappings, COMMAND_MAP_NAME);
@@ -66,64 +64,47 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         ((JBTable) commandContent.getComponent()).setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
 
-    private Content createTable(Project project, ContentManager contentManager, HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mappings, String tableName)
+    private Content createTable(Project project, ContentManager contentManager, Vector<UsageMapping> usageMappings, String tableName)
     {
-        Set<JSFile> files = mappings.keySet();
         final Vector<Vector> names = new Vector<Vector>();
         final Vector<Vector> dataRows = new Vector<Vector>();
-        prepareTableData(mappings, dataRows, names, files);
+
+        prepareTableData(usageMappings, dataRows, names, usageMappings);
+
         AbstractTableModel tableModel = new MyAbstractTableModel(names);
         final JBTable table = new JBTable(tableModel);
+
         table.setCellSelectionEnabled(true);
         Content content = ContentFactory.SERVICE.getInstance().createContent(table, tableName, false);
         contentManager.addContent(content);
+
         table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
 
         return content;
     }
 
-    private void prepareTableData(HashMap<JSFile, Vector<Vector<PsiNamedElement>>> mappings, Vector<Vector> dataRows, Vector<Vector> names, Set<JSFile> files)
+    private void prepareTableData(Vector<UsageMapping> mappings, Vector<Vector> dataRows, Vector<Vector> names, Vector<UsageMapping> usageMappings)
     {
-        for (JSFile file : files)
+        for (UsageMapping usageMapping : usageMappings)
         {
-            System.out.print(file.getName() + " has mappings: \n");
+            Vector<String> column = new Vector<String>();
+            Vector<Object> dataColumn = new Vector<Object>();
 
-            Vector<Vector<PsiNamedElement>> mapList = mappings.get(file);
-            for (Vector<PsiNamedElement> mapping : mapList)
+            System.out.print(usageMapping.getUsage().getFile().getName() + " has mappings: \n");
+
+            PsiFile psiFile = usageMapping.getUsage().getElement().getContainingFile();
+            column.add(psiFile.getName()); //todo: reconsider how to approach getting names of files
+            dataColumn.add(usageMapping.getUsage());
+
+            Vector<PsiNamedElement> mappedElements = usageMapping.getMappedElements();
+            for (PsiNamedElement mapping : mappedElements)
             {
-                String name;
-                PsiNamedElement value = null;
-                if (mapping.size() > 1)
-                {
-                    value = mapping.get(1);
-                }
-                if (value != null) //todo: consider null object pattern
-                {
-                    name = value.getName();
-                }
-                else
-                {
-                    name = "Nothing";
-                }
-
-                System.out.print("\t" + mapping.get(0).getName() + " to " + name + "\n");
-                Vector<String> column = new Vector<String>();
-                Vector<PsiElement> dataColumn = new Vector<PsiElement>();
-
-                column.add(file.getName());
-                dataColumn.add(JSPsiImplUtils.findClass(file));
-
-                column.add(mapping.get(0).getName());
-                dataColumn.add(mapping.get(0));
-
-                if (value != null)
-                {
-                    column.add(value.getName());
-                    dataColumn.add(value);
-                }
-                names.add(column);
-                dataRows.add(dataColumn);
+                column.add(mapping.getName());
+                dataColumn.add(mapping);
             }
+
+            names.add(column);
+            dataRows.add(dataColumn);
         }
     }
 
@@ -147,12 +128,31 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             Object valueAt = table.getValueAt(row, column);
             System.out.print(valueAt + "\n");
 
-            PsiElement psiElement = (PsiElement) dataRows.get(row).get(column);
-            VirtualFile virtualFile = psiElement.getContainingFile().getVirtualFile();
-            FileEditorManager.getInstance(project).openFile(virtualFile, true);
-            Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-            selectedTextEditor.getCaretModel().moveToOffset(psiElement.getTextOffset());
-            selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+            if (dataRows.get(row).get(column) instanceof PsiElement)
+            {
+                PsiElement psiElement = (PsiElement) dataRows.get(row).get(column);
+                VirtualFile virtualFile = psiElement.getContainingFile().getVirtualFile();
+                FileEditorManager.getInstance(project).openFile(virtualFile, true);
+                Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+
+
+                selectedTextEditor.getCaretModel().moveToOffset(psiElement.getTextOffset());
+                selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+            }
+
+            if (dataRows.get(row).get(column) instanceof UsageInfo2UsageAdapter)
+            {
+                UsageInfo2UsageAdapter usageAdapter = (UsageInfo2UsageAdapter) dataRows.get(row).get(column);
+                VirtualFile virtualFile = usageAdapter.getFile();
+                FileEditorManager.getInstance(project).openFile(virtualFile, true);
+                Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+
+
+                selectedTextEditor.getCaretModel().moveToOffset(usageAdapter.getUsageInfo().getNavigationOffset());
+                selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+            }
+
+
         }
     }
 

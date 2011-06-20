@@ -4,7 +4,6 @@ import com.intellij.find.FindManager;
 import com.intellij.find.findUsages.FindUsagesHandler;
 import com.intellij.find.findUsages.FindUsagesManager;
 import com.intellij.find.impl.FindManagerImpl;
-import com.intellij.lang.javascript.psi.JSFile;
 import com.intellij.lang.javascript.psi.JSFunction;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
@@ -17,7 +16,6 @@ import com.intellij.util.Processor;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Vector;
 
@@ -32,7 +30,7 @@ public class Mappings
     {
     }
 
-    public <K, V> HashMap<JSFile, Vector<Vector<PsiNamedElement>>> getMappingByClassAndFunctionProject(Project project, String className, String functionName)
+    public <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String className, String functionName)
     {
         PsiDocumentManager.getInstance(project).commitAllDocuments();
 
@@ -46,28 +44,20 @@ public class Mappings
         List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(mapView, project);
 
         //Create a map of the first param (the "view") to the second param (the "mediator")
-        HashMap<JSFile, Vector<Vector<PsiNamedElement>>> fileToListOfMappings = getMappedElementsFromUsage(mapViewUsages);
+        Vector<UsageMapping> fileToListOfMappings = getMappedElementsFromUsage(mapViewUsages);
 
         return fileToListOfMappings;
     }
 
 
-    private HashMap<JSFile, Vector<Vector<PsiNamedElement>>> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> functionUsages)
+    private Vector<UsageMapping> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> functionUsages)
     {
-        HashMap fileToListOfMappings = new HashMap<JSFile, Vector<Vector<PsiElement>>>();
+        Vector<UsageMapping> usageMappings = new Vector<UsageMapping>();
 
         for (UsageInfo2UsageAdapter functionUsage : functionUsages)
         {
             PsiFile containingFile = functionUsage.getElement().getContainingFile();
-
-            Vector<Vector<PsiNamedElement>> vectorOfMappings = (Vector<Vector<PsiNamedElement>>) fileToListOfMappings.get(containingFile);
-
-
-            if (vectorOfMappings == null)
-            {
-                vectorOfMappings = new Vector<Vector<PsiNamedElement>>();
-                fileToListOfMappings.put(containingFile, vectorOfMappings);
-            }
+            UsageMapping usageMapping = new UsageMapping(functionUsage);
 
             //move "up" once: mediatorMap.mapView -> mediatorMap.mapView(View, Mediator)
             PsiElement context = functionUsage.getElement().getContext();
@@ -75,21 +65,19 @@ public class Mappings
             //move to args: mediatorMap.mapView(View, Mediator) -> (View, Mediator)
             PsiElement[] children = context.getChildren()[1].getChildren();
 
-            Vector<PsiNamedElement> psiElements = new Vector<PsiNamedElement>();
-
             PsiNamedElement key = (PsiNamedElement) ((PsiReference) children[0]).resolve();
-            psiElements.add(key);
 
-            PsiNamedElement value = null;
-            if(children.length > 1)
+            PsiNamedElement value;
+            if (children.length > 1) //todo: loop through children?
             {
                 value = (PsiNamedElement) ((PsiReference) children[1]).resolve();
-                psiElements.add(value);
+                usageMapping.add(value);
             }
+            usageMapping.add(key);
 
-            vectorOfMappings.add(psiElements);
+            usageMappings.add(usageMapping);
         }
-        return fileToListOfMappings;
+        return usageMappings;
     }
 
     public static List<UsageInfo2UsageAdapter> findUsagesOfPsiElement(PsiElement psiElement, Project project)
