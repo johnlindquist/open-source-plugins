@@ -91,6 +91,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         contentManager.addContent(content);
 
         table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
+        table.setEnableAntialiasing(true);
 
         return content;
     }
