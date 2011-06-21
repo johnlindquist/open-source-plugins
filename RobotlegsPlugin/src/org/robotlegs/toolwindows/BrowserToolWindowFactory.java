@@ -45,31 +45,39 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
     private static final String COMMAND_MAP = "org.robotlegs.core.ICommandMap";
     private static final String MAP_EVENT = "mapEvent";
 
+    private static final String SIGNAL_COMMAND_MAP = "org.robotlegs.core.ISignalCommandMap";
+    private static final String MAP_SIGNAL_CLASS = "mapSignalClass";
+
     private static final String INJECTOR = "org.robotlegs.core.IInjector";
     private static final String MAP_SINGLETON = "mapSingleton";
 
     //tab names
     private static final String MEDIATOR_MAP_NAME = "MediatorMap";
     private static final String COMMAND_MAP_NAME = "CommandMap";
+    private static final String SIGNAL_COMMAND_MAP_NAME = "SignalCommandMap";
     private static final String SINGLETON_MAP_NAME = "SingletonMap";
+
     private Project project;
-    private ToolWindow toolWindow;
+    private String[] classes = new String[]{MEDIATOR_MAP, COMMAND_MAP, INJECTOR, SIGNAL_COMMAND_MAP};
+    private String[] functions = new String[]{MAP_VIEW, MAP_EVENT, MAP_SINGLETON, MAP_SIGNAL_CLASS};
+    private String[] tabNames = new String[]{MEDIATOR_MAP_NAME, COMMAND_MAP_NAME, SINGLETON_MAP_NAME, SIGNAL_COMMAND_MAP_NAME};
 
     @Override public void createToolWindowContent(final Project project, ToolWindow toolWindow)
     {
         this.project = project;
-        this.toolWindow = toolWindow;
         ContentManager contentManager = toolWindow.getContentManager();
 
         Mappings mappings = new Mappings();
 
-        Vector<UsageMapping> mediatorMappings = mappings.getMappingByClassAndFunctionProject(project, MEDIATOR_MAP, MAP_VIEW);
-        Vector<UsageMapping> commandMappings = mappings.getMappingByClassAndFunctionProject(project, COMMAND_MAP, MAP_EVENT);
-        Vector<UsageMapping> singletonMappings = mappings.getMappingByClassAndFunctionProject(project, INJECTOR, MAP_SINGLETON);
+        for (int i = 0; i < classes.length; i++)
+        {
+            String someClass = classes[i];
+            String someFunction = functions[i];
+            String tabName = tabNames[i];
 
-        Content mediatorContent = createTable(project, contentManager, mediatorMappings, MEDIATOR_MAP_NAME);
-        Content commandContent = createTable(project, contentManager, commandMappings, COMMAND_MAP_NAME);
-        Content singletonContent = createTable(project, contentManager, singletonMappings, SINGLETON_MAP_NAME);
+            Vector<UsageMapping> usageMappings = mappings.getMappingByClassAndFunctionProject(project, someClass, someFunction);
+            Content content = createTable(project, contentManager, usageMappings, tabName);
+        }
     }
 
     private Content createTable(Project project, ContentManager contentManager, Vector<UsageMapping> usageMappings, String tableName)
