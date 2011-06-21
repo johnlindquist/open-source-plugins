@@ -32,8 +32,6 @@ public class Mappings
 
     public <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String className, String functionName)
     {
-        PsiDocumentManager.getInstance(project).commitAllDocuments();
-
         //What's a better way to find a JSClass from a String? I want to find: org.robotlegs.core.IMediatorMap
         JSClass jsClass = (JSClass) JSResolveUtil.findElementsByName(className, project, GlobalSearchScope.allScope(project)).iterator().next();
 

@@ -1,5 +1,12 @@
 package org.robotlegs.toolwindows;
 
+import com.intellij.lang.javascript.JavaScriptSupportLoader;
+import com.intellij.lang.javascript.psi.JSFile;
+import com.intellij.lang.javascript.psi.ecmal4.JSClass;
+import com.intellij.lang.javascript.psi.impl.JSChangeUtil;
+import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
+import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -7,6 +14,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
+import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiNamedElement;
@@ -43,9 +51,13 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
     private static final String MEDIATOR_MAP_NAME = "MediatorMap";
     private static final String COMMAND_MAP_NAME = "CommandMap";
     private static final String SINGLETON_MAP_NAME = "SingletonMap";
+    private Project project;
+    private ToolWindow toolWindow;
 
     @Override public void createToolWindowContent(final Project project, ToolWindow toolWindow)
     {
+        this.project = project;
+        this.toolWindow = toolWindow;
         ContentManager contentManager = toolWindow.getContentManager();
 
         Mappings mappings = new Mappings();
@@ -108,7 +120,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         }
     }
 
-    private static class MyMouseAdapter extends MouseAdapter
+    private class MyMouseAdapter extends MouseAdapter
     {
         private final JBTable table;
         private final Vector<Vector> dataRows;
@@ -121,39 +133,94 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             this.project = project;
         }
 
-        @Override public void mouseClicked(MouseEvent e)
+        @Override public void mouseClicked(final MouseEvent e)
         {
             int row = table.rowAtPoint(e.getPoint());
             int column = table.columnAtPoint(e.getPoint());
-            Object valueAt = table.getValueAt(row, column);
-            System.out.print(valueAt + "\n");
+            Object selectionName = table.getValueAt(row, column);
+            System.out.print(selectionName + "\n");
 
-            if (dataRows.get(row).get(column) instanceof PsiElement)
+            Object itemUnderMouse = dataRows.get(row).get(column);
+
+            if (!SwingUtilities.isRightMouseButton(e))
             {
-                PsiElement psiElement = (PsiElement) dataRows.get(row).get(column);
-                VirtualFile virtualFile = psiElement.getContainingFile().getVirtualFile();
-                FileEditorManager.getInstance(project).openFile(virtualFile, true);
-                Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+                if (itemUnderMouse instanceof PsiElement)
+                {
+                    PsiElement psiElement = (PsiElement) itemUnderMouse;
+                    VirtualFile virtualFile = psiElement.getContainingFile().getVirtualFile();
+                    FileEditorManager.getInstance(project).openFile(virtualFile, true);
+                    Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
 
+                    selectedTextEditor.getCaretModel().moveToOffset(psiElement.getTextOffset());
+                    selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+                }
 
-                selectedTextEditor.getCaretModel().moveToOffset(psiElement.getTextOffset());
-                selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+                if (itemUnderMouse instanceof UsageInfo2UsageAdapter)
+                {
+                    UsageInfo2UsageAdapter usageAdapter = (UsageInfo2UsageAdapter) itemUnderMouse;
+                    VirtualFile virtualFile = usageAdapter.getFile();
+                    FileEditorManager.getInstance(project).openFile(virtualFile, true);
+                    Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+
+                    selectedTextEditor.getCaretModel().moveToOffset(usageAdapter.getUsageInfo().getNavigationOffset());
+                    selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+                }
             }
 
-            if (dataRows.get(row).get(column) instanceof UsageInfo2UsageAdapter)
+
+            if (SwingUtilities.isRightMouseButton(e))
             {
-                UsageInfo2UsageAdapter usageAdapter = (UsageInfo2UsageAdapter) dataRows.get(row).get(column);
-                VirtualFile virtualFile = usageAdapter.getFile();
-                FileEditorManager.getInstance(project).openFile(virtualFile, true);
-                Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+                ActionPopupMenu popupMenu = ActionManager.getInstance().createActionPopupMenu(ActionPlaces.TODO_VIEW_TOOLBAR, createActionGroup(selectionName, itemUnderMouse));
+                popupMenu.getComponent().show(table, table.getMousePosition().x, table.getMousePosition().y);
 
-
-                selectedTextEditor.getCaretModel().moveToOffset(usageAdapter.getUsageInfo().getNavigationOffset());
-                selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
             }
-
 
         }
+    }
+
+    private ActionGroup createActionGroup(Object selectionName, final Object itemUnderMouse)
+    {
+        DefaultActionGroup group = new DefaultActionGroup();
+
+        Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+        final PsiFile targetFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
+
+        group.add(new AnAction("Inject " + selectionName + " into " + targetFile.getName())
+        {
+
+            @Override public void actionPerformed(AnActionEvent e)
+            {
+                if (itemUnderMouse instanceof PsiElement)
+                {
+                    ApplicationManager.getApplication().runWriteAction(new Runnable()
+                    {
+                        @Override public void run()
+                        {
+                            JSClass editorClass = JSPsiImplUtils.findClass((JSFile) targetFile);
+                            JSClass jsClass = (JSClass) itemUnderMouse;
+                            String nameOfInjectedClass = jsClass.getName();
+                            JSFile containingFile = (JSFile) jsClass.getContainingFile();
+                            String importStatement = "import " + JSPsiImplUtils.findPackageStatement(containingFile).getQualifiedName() + "." + jsClass.getName();
+                            PsiElement importLine = JSChangeUtil.createJSTreeFromText(project, importStatement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
+                            editorClass.addBefore(importLine, editorClass.getFirstChild());
+
+                            String lowercaseNameOfClass = nameOfInjectedClass.substring(0, 1).toLowerCase() + nameOfInjectedClass.substring(1, nameOfInjectedClass.length());
+
+                            String statement = "[Inject]\npublic var " + lowercaseNameOfClass + ":" + nameOfInjectedClass + ";";
+                            PsiElement injectedField = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
+                            editorClass.addBefore(injectedField, editorClass.getFunctions()[0]);
+
+                            System.out.println(statement);
+
+                            PsiDocumentManager.getInstance(project).commitAllDocuments();
+                        }
+                    });
+
+                }
+            }
+        });
+
+        return group;
     }
 
     private static class MyAbstractTableModel extends AbstractTableModel
