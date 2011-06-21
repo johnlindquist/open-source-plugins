@@ -1,10 +1,14 @@
-<idea-plugin version="2" xmlns:xi="http://www.w3.org/2001/XInclude">
+<idea-plugin url="https://github.com/johnlindquist/open-source-plugins" version="2" xmlns:xi="http://www.w3.org/2001/XInclude">
     <id>com.johnlindquist.robotlegs</id>
-    <name>Robotlegs Support</name>
-    <description>Supporting the Robotlegs framework (http://robotlegs.org)</description>
-    <version>0.1</version>
-    <vendor>johnlindquist.com</vendor>
-    <idea-version since-build="8000"/>
+    <name>Robotlegs</name>
+    <description>Adds various features to support Robotlegs. While in beta, log bugs here:
+        http://j.mp/robotlegs-plugin-bugs
+    </description>
+    <change-notes>0.1 Initial Beta Release: Browse your project for mapped classes and inject a class with right-click.</change-notes>
+    <version>0.1 Beta</version>
+    <category>ActionScript</category>
+    <vendor url="http://johnlindquist.com" email="johnlindquist@gmail.com">johnlindquist</vendor>
+
 
     <depends>JavaScript</depends>
     <depends>com.intellij.modules.lang</depends>
@@ -24,7 +28,7 @@
 
     <actions>
         <!-- Add your actions here -->
-        <action id="CreateMediatorAction" class="actions.CreateMediatorAction" text="Create Mediator"
+<!--        <action id="CreateMediatorAction" class="actions.CreateMediatorAction" text="Create Mediator"
                 description="Creates a Mediator from a DisplayObjectContainer">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
@@ -36,6 +40,6 @@
                 description="Show the flow of the selected instance">
             <add-to-group group-id="ToolsMenu" anchor="first"/>
             <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt 7"/>
-        </action>
+        </action>-->
     </actions>
 </idea-plugin>

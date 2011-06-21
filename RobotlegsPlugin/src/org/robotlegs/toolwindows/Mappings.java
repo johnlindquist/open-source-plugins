@@ -39,16 +39,22 @@ public class Mappings
         Vector<UsageMapping> fileToListOfMappings = new Vector<UsageMapping>();
         JSClass jsClass = (JSClass) JSResolveUtil.findClassByQName(classQName, GlobalSearchScope.allScope(project));
 
-        for (String functionName : functionNames)
+        if (jsClass != null)
         {
-            //Find the "mapView" function on IMediatorMap so we can find where it's used throughout the app
-            JSFunction mapView = jsClass.findFunctionByName(functionName);
+            for (String functionName : functionNames)
+            {
+                //Find the "mapView" function on IMediatorMap so we can find where it's used throughout the app
+                JSFunction foundFunction = jsClass.findFunctionByName(functionName);
 
-            //Find all the usages of "mapView" and return then as UsageInfo
-            List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(mapView, project);
+                if (foundFunction != null)
+                {
+                    //Find all the usages of "mapView" and return then as UsageInfo
+                    List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(foundFunction, project);
 
-            //Create a map of the first param (the "view") to the second param (the "mediator")
-            fileToListOfMappings.addAll(getMappedElementsFromUsage(mapViewUsages));
+                    //Create a map of the first param (the "view") to the second param (the "mediator")
+                    fileToListOfMappings.addAll(getMappedElementsFromUsage(mapViewUsages));
+                }
+            }
         }
 
         return fileToListOfMappings;
