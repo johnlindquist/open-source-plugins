@@ -39,13 +39,13 @@ import java.util.Vector;
 public class BrowserToolWindowFactory implements ToolWindowFactory
 {
 
-    private static final String MEDIATOR_MAP = "IMediatorMap";
+    private static final String MEDIATOR_MAP = "org.robotlegs.core.IMediatorMap";
     private static final String MAP_VIEW = "mapView";
 
-    private static final String COMMAND_MAP = "ICommandMap";
+    private static final String COMMAND_MAP = "org.robotlegs.core.ICommandMap";
     private static final String MAP_EVENT = "mapEvent";
 
-    private static final String INJECTOR = "IInjector";
+    private static final String INJECTOR = "org.robotlegs.core.IInjector";
     private static final String MAP_SINGLETON = "mapSingleton";
 
     //tab names
@@ -70,11 +70,6 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         Content mediatorContent = createTable(project, contentManager, mediatorMappings, MEDIATOR_MAP_NAME);
         Content commandContent = createTable(project, contentManager, commandMappings, COMMAND_MAP_NAME);
         Content singletonContent = createTable(project, contentManager, singletonMappings, SINGLETON_MAP_NAME);
-
-
-        contentManager.setSelectedContent(commandContent);
-
-        ((JBTable) commandContent.getComponent()).setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
 
     private Content createTable(Project project, ContentManager contentManager, Vector<UsageMapping> usageMappings, String tableName)
@@ -84,17 +79,22 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
         prepareTableData(usageMappings, dataRows, names, usageMappings);
 
-        AbstractTableModel tableModel = new MappingsTableModel(names);
-        final JBTable table = new JBTable(tableModel);
+        if (names.size() > 0)
+        {
+            AbstractTableModel tableModel = new MappingsTableModel(names);
+            final JBTable table = new JBTable(tableModel);
 
-        table.setCellSelectionEnabled(true);
-        Content content = ContentFactory.SERVICE.getInstance().createContent(table, tableName, false);
-        contentManager.addContent(content);
+            table.setCellSelectionEnabled(true);
+            Content content = ContentFactory.SERVICE.getInstance().createContent(table, tableName, false);
+            contentManager.addContent(content);
 
-        table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
-        table.setEnableAntialiasing(true);
+            table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
+            table.setEnableAntialiasing(true);
 
-        return content;
+            return content;
+        }
+
+        return null;
     }
 
     private void prepareTableData(Vector<UsageMapping> mappings, Vector<Vector> dataRows, Vector<Vector> names, Vector<UsageMapping> usageMappings)

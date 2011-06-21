@@ -8,7 +8,10 @@ import com.intellij.lang.javascript.psi.JSFunction;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.*;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiNamedElement;
+import com.intellij.psi.PsiReference;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.usages.Usage;
 import com.intellij.usages.UsageInfo2UsageAdapter;
@@ -30,10 +33,11 @@ public class Mappings
     {
     }
 
-    public <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String className, String functionName)
+    public <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String classQName, String functionName)
     {
         //What's a better way to find a JSClass from a String? I want to find: org.robotlegs.core.IMediatorMap
-        JSClass jsClass = (JSClass) JSResolveUtil.findElementsByName(className, project, GlobalSearchScope.allScope(project)).iterator().next();
+        JSClass jsClass = (JSClass) JSResolveUtil.findClassByQName(classQName, GlobalSearchScope.allScope(project));
+
 
         //Find the "mapView" function on IMediatorMap so we can find where it's used throughout the app
         JSFunction mapView = jsClass.findFunctionByName(functionName);
