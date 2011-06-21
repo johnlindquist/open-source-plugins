@@ -7,6 +7,7 @@ import com.intellij.lang.javascript.psi.impl.JSChangeUtil;
 import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.command.CommandProcessor;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.fileEditor.FileEditorManager;
@@ -83,7 +84,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
         prepareTableData(usageMappings, dataRows, names, usageMappings);
 
-        AbstractTableModel tableModel = new MyAbstractTableModel(names);
+        AbstractTableModel tableModel = new MappingsTableModel(names);
         final JBTable table = new JBTable(tableModel);
 
         table.setCellSelectionEnabled(true);
@@ -143,7 +144,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
             Object itemUnderMouse = dataRows.get(row).get(column);
 
-            if (!SwingUtilities.isRightMouseButton(e))
+            if (SwingUtilities.isLeftMouseButton(e))
             {
                 if (itemUnderMouse instanceof PsiElement)
                 {
@@ -186,50 +187,17 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
         final PsiFile targetFile = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
 
-        group.add(new AnAction("Inject " + selectionName + " into " + targetFile.getName())
-        {
-
-            @Override public void actionPerformed(AnActionEvent e)
-            {
-                if (itemUnderMouse instanceof PsiElement)
-                {
-                    ApplicationManager.getApplication().runWriteAction(new Runnable()
-                    {
-                        @Override public void run()
-                        {
-                            JSClass editorClass = JSPsiImplUtils.findClass((JSFile) targetFile);
-                            JSClass jsClass = (JSClass) itemUnderMouse;
-                            String nameOfInjectedClass = jsClass.getName();
-                            JSFile containingFile = (JSFile) jsClass.getContainingFile();
-                            String importStatement = "import " + JSPsiImplUtils.findPackageStatement(containingFile).getQualifiedName() + "." + jsClass.getName();
-                            PsiElement importLine = JSChangeUtil.createJSTreeFromText(project, importStatement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
-                            editorClass.addBefore(importLine, editorClass.getFirstChild());
-
-                            String lowercaseNameOfClass = nameOfInjectedClass.substring(0, 1).toLowerCase() + nameOfInjectedClass.substring(1, nameOfInjectedClass.length());
-
-                            String statement = "[Inject]\npublic var " + lowercaseNameOfClass + ":" + nameOfInjectedClass + ";";
-                            PsiElement injectedField = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
-                            editorClass.addBefore(injectedField, editorClass.getFunctions()[0]);
-
-                            System.out.println(statement);
-
-                            PsiDocumentManager.getInstance(project).commitAllDocuments();
-                        }
-                    });
-
-                }
-            }
-        });
+        group.add(new InjectClassIntoEditorAction(selectionName, targetFile, itemUnderMouse));
 
         return group;
     }
 
-    private static class MyAbstractTableModel extends AbstractTableModel
+    private static class MappingsTableModel extends AbstractTableModel
     {
 
         private final Vector<Vector> rowNames;
 
-        public MyAbstractTableModel(Vector<Vector> rowNames)
+        public MappingsTableModel(Vector<Vector> rowNames)
         {
             this.rowNames = rowNames;
         }
@@ -249,6 +217,68 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
             Vector rows = rowNames.get(rowIndex);
             return rows.get(columnIndex);
+        }
+    }
+
+    private class InjectSelectedClassIntoEditorClass implements Runnable
+    {
+        private final PsiFile targetFile;
+        private final Object itemUnderMouse;
+
+        public InjectSelectedClassIntoEditorClass(PsiFile targetFile, Object itemUnderMouse)
+        {
+            this.targetFile = targetFile;
+            this.itemUnderMouse = itemUnderMouse;
+        }
+
+        @Override public void run()
+        {
+            JSClass editorClass = JSPsiImplUtils.findClass((JSFile) targetFile);
+            JSClass jsClass = (JSClass) itemUnderMouse;
+            String nameOfInjectedClass = jsClass.getName();
+            JSFile containingFile = (JSFile) jsClass.getContainingFile();
+            String importStatement = "import " + JSPsiImplUtils.findPackageStatement(containingFile).getQualifiedName() + "." + jsClass.getName();
+            PsiElement importLine = JSChangeUtil.createJSTreeFromText(project, importStatement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
+            editorClass.addBefore(importLine, editorClass.getFirstChild());
+
+            String lowercaseNameOfClass = nameOfInjectedClass.substring(0, 1).toLowerCase() + nameOfInjectedClass.substring(1, nameOfInjectedClass.length());
+
+            String statement = "[Inject]\npublic var " + lowercaseNameOfClass + ":" + nameOfInjectedClass + ";";
+            PsiElement injectedField = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
+            editorClass.addBefore(injectedField, editorClass.getFunctions()[0]);
+
+            System.out.println(statement);
+
+            PsiDocumentManager.getInstance(project).commitAllDocuments();
+        }
+    }
+
+    private class InjectClassIntoEditorAction extends AnAction
+    {
+
+        private final PsiFile targetFile;
+        private final Object itemUnderMouse;
+
+        public InjectClassIntoEditorAction(Object selectionName, PsiFile targetFile, Object itemUnderMouse)
+        {
+            super("Inject " + selectionName + " into " + targetFile.getName());
+            this.targetFile = targetFile;
+            this.itemUnderMouse = itemUnderMouse;
+        }
+
+        @Override public void actionPerformed(AnActionEvent e)
+        {
+            if (itemUnderMouse instanceof PsiElement)
+            {
+                CommandProcessor.getInstance().executeCommand(project, new Runnable()
+                {
+                    @Override public void run()
+                    {
+                        ApplicationManager.getApplication().runWriteAction(new InjectSelectedClassIntoEditorClass(targetFile, itemUnderMouse));
+                    }
+                }, "Inject Class as Field into File", null);
+
+            }
         }
     }
 }
