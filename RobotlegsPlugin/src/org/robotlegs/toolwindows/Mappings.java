@@ -4,6 +4,7 @@ import com.intellij.find.FindManager;
 import com.intellij.find.findUsages.FindUsagesHandler;
 import com.intellij.find.findUsages.FindUsagesManager;
 import com.intellij.find.impl.FindManagerImpl;
+import com.intellij.lang.javascript.psi.JSCallExpression;
 import com.intellij.lang.javascript.psi.JSFunction;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
@@ -33,20 +34,22 @@ public class Mappings
     {
     }
 
-    public <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String classQName, String functionName)
+    public <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String classQName, String[] functionNames)
     {
-        //What's a better way to find a JSClass from a String? I want to find: org.robotlegs.core.IMediatorMap
+        Vector<UsageMapping> fileToListOfMappings = new Vector<UsageMapping>();
         JSClass jsClass = (JSClass) JSResolveUtil.findClassByQName(classQName, GlobalSearchScope.allScope(project));
 
+        for (String functionName : functionNames)
+        {
+            //Find the "mapView" function on IMediatorMap so we can find where it's used throughout the app
+            JSFunction mapView = jsClass.findFunctionByName(functionName);
 
-        //Find the "mapView" function on IMediatorMap so we can find where it's used throughout the app
-        JSFunction mapView = jsClass.findFunctionByName(functionName);
+            //Find all the usages of "mapView" and return then as UsageInfo
+            List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(mapView, project);
 
-        //Find all the usages of "mapView" and return then as UsageInfo
-        List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(mapView, project);
-
-        //Create a map of the first param (the "view") to the second param (the "mediator")
-        Vector<UsageMapping> fileToListOfMappings = getMappedElementsFromUsage(mapViewUsages);
+            //Create a map of the first param (the "view") to the second param (the "mediator")
+            fileToListOfMappings.addAll(getMappedElementsFromUsage(mapViewUsages));
+        }
 
         return fileToListOfMappings;
     }
@@ -69,10 +72,18 @@ public class Mappings
 
             PsiNamedElement key = (PsiNamedElement) ((PsiReference) children[0]).resolve();
 
-            PsiNamedElement value;
+            PsiElement value;
             if (children.length > 1) //todo: loop through children?
             {
-                value = (PsiNamedElement) ((PsiReference) children[1]).resolve();
+                PsiElement child = children[1];
+                if (child instanceof JSCallExpression)
+                {
+                    value = child;
+                }
+                else
+                {
+                    value = ((PsiReference) child).resolve();
+                }
                 usageMapping.add(value);
             }
             usageMapping.add(key);

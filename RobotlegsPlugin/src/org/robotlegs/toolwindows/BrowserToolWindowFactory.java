@@ -12,6 +12,7 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ui.componentsList.layout.VerticalStackLayout;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
@@ -39,6 +40,7 @@ import java.util.Vector;
 public class BrowserToolWindowFactory implements ToolWindowFactory
 {
 
+    //extract Strings to config
     private static final String MEDIATOR_MAP = "org.robotlegs.core.IMediatorMap";
     private static final String MAP_VIEW = "mapView";
 
@@ -50,33 +52,50 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
     private static final String INJECTOR = "org.robotlegs.core.IInjector";
     private static final String MAP_SINGLETON = "mapSingleton";
+    private static final String MAP_VALUE = "mapValue";
+    private static final String MAP_RULE = "mapRule";
+    private static final String MAP_CLASS = "mapClass";
 
     //tab names
     private static final String MEDIATOR_MAP_NAME = "MediatorMap";
     private static final String COMMAND_MAP_NAME = "CommandMap";
     private static final String SIGNAL_COMMAND_MAP_NAME = "SignalCommandMap";
-    private static final String SINGLETON_MAP_NAME = "SingletonMap";
+    private static final String INJECTOR_NAME = "Injector";
+    private static final String REFRESH_ALL = "Refresh All";
 
     private Project project;
-    private String[] classes = new String[]{MEDIATOR_MAP, COMMAND_MAP, INJECTOR, SIGNAL_COMMAND_MAP};
-    private String[] functions = new String[]{MAP_VIEW, MAP_EVENT, MAP_SINGLETON, MAP_SIGNAL_CLASS};
-    private String[] tabNames = new String[]{MEDIATOR_MAP_NAME, COMMAND_MAP_NAME, SINGLETON_MAP_NAME, SIGNAL_COMMAND_MAP_NAME};
 
-    @Override public void createToolWindowContent(final Project project, ToolWindow toolWindow)
+    private String[] mediatorFunctions = new String[]{MAP_VIEW};
+    private String[] commandFunctions = new String[]{MAP_EVENT};
+    private String[] injectorFunctions = new String[]{MAP_SINGLETON, MAP_VALUE, MAP_RULE, MAP_CLASS};
+    private String[] signalFunctions = new String[]{MAP_SIGNAL_CLASS};
+
+    private UsagesRequestValues mediatorMapValues = new UsagesRequestValues(MEDIATOR_MAP, MEDIATOR_MAP_NAME, mediatorFunctions);
+    private UsagesRequestValues commandMapValues = new UsagesRequestValues(COMMAND_MAP, COMMAND_MAP_NAME, commandFunctions);
+    private UsagesRequestValues signalCommandMapValues = new UsagesRequestValues(SIGNAL_COMMAND_MAP, SIGNAL_COMMAND_MAP_NAME, signalFunctions);
+    private UsagesRequestValues injectorValues = new UsagesRequestValues(INJECTOR, INJECTOR_NAME, injectorFunctions);
+
+    private UsagesRequestValues[] values = new UsagesRequestValues[]{mediatorMapValues, commandMapValues, signalCommandMapValues, injectorValues};
+    private ContentManager contentManager;
+
+    @Override public void createToolWindowContent(Project project, ToolWindow toolWindow)
     {
         this.project = project;
-        ContentManager contentManager = toolWindow.getContentManager();
+        contentManager = toolWindow.getContentManager();
+
+        refreshValues();
+    }
+
+    private void refreshValues()
+    {
+        contentManager.removeAllContents(true);
 
         Mappings mappings = new Mappings();
 
-        for (int i = 0; i < classes.length; i++)
+        for (UsagesRequestValues value : values)
         {
-            String someClass = classes[i];
-            String someFunction = functions[i];
-            String tabName = tabNames[i];
-
-            Vector<UsageMapping> usageMappings = mappings.getMappingByClassAndFunctionProject(project, someClass, someFunction);
-            Content content = createTable(project, contentManager, usageMappings, tabName);
+            Vector<UsageMapping> usageMappings = mappings.getMappingByClassAndFunctionProject(project, value.getClassQName(), value.getFunctions());
+            Content content = createTable(project, contentManager, usageMappings, value.getTabName());
         }
     }
 
@@ -85,7 +104,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         final Vector<Vector> names = new Vector<Vector>();
         final Vector<Vector> dataRows = new Vector<Vector>();
 
-        prepareTableData(usageMappings, dataRows, names, usageMappings);
+        prepareTableData(usageMappings, dataRows, names);
 
         if (names.size() > 0)
         {
@@ -93,7 +112,19 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             final JBTable table = new JBTable(tableModel);
 
             table.setCellSelectionEnabled(true);
-            Content content = ContentFactory.SERVICE.getInstance().createContent(table, tableName, false);
+            JPanel jPanel = new JPanel();
+            jPanel.setLayout(new VerticalStackLayout());
+            JButton button = new JButton(REFRESH_ALL);
+            button.addMouseListener(new MouseAdapter()
+            {
+                @Override public void mouseClicked(MouseEvent e)
+                {
+                    refreshValues();
+                }
+            });
+            jPanel.add(button);
+            jPanel.add(table);
+            Content content = ContentFactory.SERVICE.getInstance().createContent(jPanel, tableName, false);
             contentManager.addContent(content);
 
             table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
@@ -105,7 +136,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         return null;
     }
 
-    private void prepareTableData(Vector<UsageMapping> mappings, Vector<Vector> dataRows, Vector<Vector> names, Vector<UsageMapping> usageMappings)
+    private void prepareTableData(Vector<UsageMapping> usageMappings, Vector<Vector> dataRows, Vector<Vector> names)
     {
         for (UsageMapping usageMapping : usageMappings)
         {
@@ -118,10 +149,17 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             column.add(psiFile.getName()); //todo: reconsider how to approach getting names of files
             dataColumn.add(usageMapping.getUsage());
 
-            Vector<PsiNamedElement> mappedElements = usageMapping.getMappedElements();
-            for (PsiNamedElement mapping : mappedElements)
+            Vector<PsiElement> mappedElements = usageMapping.getMappedElements();
+            for (PsiElement mapping : mappedElements)
             {
-                column.add(mapping.getName());
+                if (mapping instanceof PsiNamedElement)
+                {
+                    column.add(((PsiNamedElement) mapping).getName());
+                }
+                else
+                {
+                    column.add(mapping.getText());
+                }
                 dataColumn.add(mapping);
             }
 
@@ -252,12 +290,32 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             String lowercaseNameOfClass = nameOfInjectedClass.substring(0, 1).toLowerCase() + nameOfInjectedClass.substring(1, nameOfInjectedClass.length());
 
             String statement = "[Inject]\npublic var " + lowercaseNameOfClass + ":" + nameOfInjectedClass + ";";
-            PsiElement injectedField = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
-            editorClass.addBefore(injectedField, editorClass.getFunctions()[0]);
+            PsiElement field = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
+            placeFieldInClass(editorClass, field);
 
             System.out.println(statement);
 
             PsiDocumentManager.getInstance(project).commitAllDocuments();
+        }
+
+        private void placeFieldInClass(JSClass editorClass, PsiElement injectedField)
+        {
+            if (editorClass.getConstructor() != null)
+            {
+                editorClass.addBefore(injectedField, editorClass.getConstructor());
+            }
+            else if (editorClass.getFunctions() != null)
+            {
+                editorClass.addBefore(injectedField, editorClass.getFunctions()[0]);
+            }
+            else if (editorClass.getFields() != null)
+            {
+                editorClass.addBefore(injectedField, editorClass.getFields()[editorClass.getFields().length - 1]);
+            }
+            else
+            {
+                editorClass.add(injectedField);
+            }
         }
     }
 
@@ -287,6 +345,35 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
                 }, "Inject Class as Field into File", null);
 
             }
+        }
+    }
+
+    private class UsagesRequestValues
+    {
+        private String classQName;
+        private String tabName;
+        private String[] functions;
+
+        public String getClassQName()
+        {
+            return classQName;
+        }
+
+        public String getTabName()
+        {
+            return tabName;
+        }
+
+        public String[] getFunctions()
+        {
+            return functions;
+        }
+
+        public UsagesRequestValues(String classQName, String tabName, String[] functions)
+        {
+            this.classQName = classQName;
+            this.tabName = tabName;
+            this.functions = functions;
         }
     }
 }

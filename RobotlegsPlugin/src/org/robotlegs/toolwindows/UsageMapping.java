@@ -1,6 +1,6 @@
 package org.robotlegs.toolwindows;
 
-import com.intellij.psi.PsiNamedElement;
+import com.intellij.psi.PsiElement;
 import com.intellij.usages.UsageInfo2UsageAdapter;
 
 import java.util.Vector;
@@ -19,20 +19,20 @@ public class UsageMapping
         return usage;
     }
 
-    public Vector<PsiNamedElement> getMappedElements()
+    public Vector<PsiElement> getMappedElements()
     {
         return mappedElements;
     }
 
-    private Vector<PsiNamedElement> mappedElements;
+    private Vector<PsiElement> mappedElements;
 
     public UsageMapping(UsageInfo2UsageAdapter usage)
     {
         this.usage = usage;
-        mappedElements = new Vector<PsiNamedElement>();
+        mappedElements = new Vector<PsiElement>();
     }
 
-    public void add(PsiNamedElement mappedElement)
+    public void add(PsiElement mappedElement)
     {
         mappedElements.add(mappedElement);
     }
