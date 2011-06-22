@@ -7,6 +7,7 @@ import com.intellij.find.impl.FindManagerImpl;
 import com.intellij.lang.javascript.psi.JSCallExpression;
 import com.intellij.lang.javascript.psi.JSFunction;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
+import com.intellij.lang.javascript.psi.impl.JSLiteralExpressionImpl;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
@@ -84,7 +85,11 @@ public class Mappings
                 PsiElement child = children[1];
                 if (child instanceof JSCallExpression)
                 {
-                    value = child;
+                    value = child; //<-- a factory function
+                }
+                else if (child instanceof JSLiteralExpressionImpl)
+                {
+                    value = child; //<-- an "id"
                 }
                 else
                 {

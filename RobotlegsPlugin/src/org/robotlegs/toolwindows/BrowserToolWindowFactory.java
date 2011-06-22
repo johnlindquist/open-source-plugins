@@ -52,6 +52,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
     private static final String INJECTOR = "org.robotlegs.core.IInjector";
     private static final String MAP_SINGLETON = "mapSingleton";
+    private static final String MAP_SINGLETON_OF = "mapSingletonOf";
     private static final String MAP_VALUE = "mapValue";
     private static final String MAP_RULE = "mapRule";
     private static final String MAP_CLASS = "mapClass";
@@ -67,7 +68,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
     private String[] mediatorFunctions = new String[]{MAP_VIEW};
     private String[] commandFunctions = new String[]{MAP_EVENT};
-    private String[] injectorFunctions = new String[]{MAP_SINGLETON, MAP_VALUE, MAP_RULE, MAP_CLASS};
+    private String[] injectorFunctions = new String[]{MAP_SINGLETON, MAP_SINGLETON_OF, MAP_VALUE, MAP_RULE, MAP_CLASS};
     private String[] signalFunctions = new String[]{MAP_SIGNAL_CLASS};
 
     private UsagesRequestValues mediatorMapValues = new UsagesRequestValues(MEDIATOR_MAP, MEDIATOR_MAP_NAME, mediatorFunctions);
@@ -163,7 +164,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
                 dataColumn.add(mapping);
             }
 
-            names.add(column);
+              names.add(column);
             dataRows.add(dataColumn);
         }
     }
@@ -188,7 +189,12 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             Object selectionName = table.getValueAt(row, column);
             System.out.print(selectionName + "\n");
 
-            Object itemUnderMouse = dataRows.get(row).get(column);
+            Vector vector = dataRows.get(row);
+            Object itemUnderMouse = null;
+            if (column < vector.size())
+            {
+                itemUnderMouse = vector.get(column);
+            }
 
             if (SwingUtilities.isLeftMouseButton(e))
             {
@@ -216,7 +222,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             }
 
 
-            if (SwingUtilities.isRightMouseButton(e))
+            if (SwingUtilities.isRightMouseButton(e) && itemUnderMouse != null)
             {
                 ActionPopupMenu popupMenu = ActionManager.getInstance().createActionPopupMenu(ActionPlaces.TODO_VIEW_TOOLBAR, createActionGroup(selectionName, itemUnderMouse));
                 popupMenu.getComponent().show(table, table.getMousePosition().x, table.getMousePosition().y);
@@ -255,13 +261,17 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
         @Override public int getColumnCount()
         {
-            return rowNames.get(0).size();
+            return 3;
         }
 
         @Override public Object getValueAt(int rowIndex, int columnIndex)
         {
 
             Vector rows = rowNames.get(rowIndex);
+            if (columnIndex >= rows.size())
+            {
+                return "";
+            }
             return rows.get(columnIndex);
         }
     }
