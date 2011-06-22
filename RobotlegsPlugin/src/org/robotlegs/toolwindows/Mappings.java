@@ -12,7 +12,6 @@ import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiNamedElement;
 import com.intellij.psi.PsiReference;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.usages.Usage;
@@ -71,37 +70,38 @@ public class Mappings
             PsiFile containingFile = functionUsage.getElement().getContainingFile();
             UsageMapping usageMapping = new UsageMapping(functionUsage);
 
-            //move "up" once: mediatorMap.mapView -> mediatorMap.mapView(View, Mediator)
+            //move "up" from function: mediatorMap.mapView -> mediatorMap.mapView(View, Mediator)
             PsiElement context = functionUsage.getElement().getContext();
 
-            //move to args: mediatorMap.mapView(View, Mediator) -> (View, Mediator)
+            //move "right" to args: mediatorMap.mapView(View, Mediator) -> (View, Mediator)
             PsiElement[] children = context.getChildren()[1].getChildren();
 
-            PsiNamedElement key = (PsiNamedElement) ((PsiReference) children[0]).resolve();
-
-            PsiElement value;
-            if (children.length > 1) //todo: loop through children?
+            for (PsiElement child : children)
             {
-                PsiElement child = children[1];
-                if (child instanceof JSCallExpression)
-                {
-                    value = child; //<-- a factory function
-                }
-                else if (child instanceof JSLiteralExpressionImpl)
-                {
-                    value = child; //<-- an "id"
-                }
-                else
-                {
-                    value = ((PsiReference) child).resolve();
-                }
-                usageMapping.add(value);
+                usageMapping.add(resolveElement(child));
             }
-            usageMapping.add(key);
 
             usageMappings.add(usageMapping);
         }
         return usageMappings;
+    }
+
+    private PsiElement resolveElement(PsiElement child)
+    {
+        PsiElement value;
+        if (child instanceof JSCallExpression)
+        {
+            value = child; //<-- a factory function
+        }
+        else if (child instanceof JSLiteralExpressionImpl)
+        {
+            value = child; //<-- an "id"
+        }
+        else
+        {
+            value = ((PsiReference) child).resolve();
+        }
+        return value;
     }
 
     public static List<UsageInfo2UsageAdapter> findUsagesOfPsiElement(PsiElement psiElement, Project project)
