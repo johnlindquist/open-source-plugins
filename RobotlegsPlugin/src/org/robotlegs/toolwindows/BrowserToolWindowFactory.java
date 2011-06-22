@@ -144,8 +144,6 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             Vector<String> column = new Vector<String>();
             Vector<Object> dataColumn = new Vector<Object>();
 
-            System.out.print(usageMapping.getUsage().getFile().getName() + " has mappings: \n");
-
             PsiFile psiFile = usageMapping.getUsage().getElement().getContainingFile();
             column.add(psiFile.getName()); //todo: reconsider how to approach getting names of files
             dataColumn.add(usageMapping.getUsage());
@@ -261,18 +259,19 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
 
         @Override public int getColumnCount()
         {
-            return 3;
+            return 5;
         }
 
         @Override public Object getValueAt(int rowIndex, int columnIndex)
         {
 
             Vector rows = rowNames.get(rowIndex);
-            if (columnIndex >= rows.size())
+            //if there isn't enough data to fill the column, then return ""
+            if (columnIndex < rows.size())
             {
-                return "";
+                return rows.get(columnIndex);
             }
-            return rows.get(columnIndex);
+            return "";
         }
     }
 
@@ -302,8 +301,6 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             String statement = "[Inject]\npublic var " + lowercaseNameOfClass + ":" + nameOfInjectedClass + ";";
             PsiElement field = JSChangeUtil.createJSTreeFromText(project, statement, JavaScriptSupportLoader.ECMA_SCRIPT_L4).getPsi();
             placeFieldInClass(editorClass, field);
-
-            System.out.println(statement);
 
             PsiDocumentManager.getInstance(project).commitAllDocuments();
         }

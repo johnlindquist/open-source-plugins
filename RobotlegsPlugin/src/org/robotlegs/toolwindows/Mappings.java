@@ -4,10 +4,8 @@ import com.intellij.find.FindManager;
 import com.intellij.find.findUsages.FindUsagesHandler;
 import com.intellij.find.findUsages.FindUsagesManager;
 import com.intellij.find.impl.FindManagerImpl;
-import com.intellij.lang.javascript.psi.JSCallExpression;
 import com.intellij.lang.javascript.psi.JSFunction;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
-import com.intellij.lang.javascript.psi.impl.JSLiteralExpressionImpl;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
@@ -73,15 +71,18 @@ public class Mappings
             //move "up" from function: mediatorMap.mapView -> mediatorMap.mapView(View, Mediator)
             PsiElement context = functionUsage.getElement().getContext();
 
-            //move "right" to args: mediatorMap.mapView(View, Mediator) -> (View, Mediator)
-            PsiElement[] children = context.getChildren()[1].getChildren();
-
-            for (PsiElement child : children)
+            if (context != null)
             {
-                usageMapping.add(resolveElement(child));
+                //move "right" to args: mediatorMap.mapView(View, Mediator) -> (View, Mediator)
+                PsiElement[] children = context.getChildren()[1].getChildren();
+                for (PsiElement child : children)
+                {
+                    usageMapping.add(resolveElement(child));
+                }
+
+                usageMappings.add(usageMapping);
             }
 
-            usageMappings.add(usageMapping);
         }
         return usageMappings;
     }
@@ -89,17 +90,13 @@ public class Mappings
     private PsiElement resolveElement(PsiElement child)
     {
         PsiElement value;
-        if (child instanceof JSCallExpression)
+        if (child instanceof PsiReference)
         {
-            value = child; //<-- a factory function
-        }
-        else if (child instanceof JSLiteralExpressionImpl)
-        {
-            value = child; //<-- an "id"
+            value = ((PsiReference) child).resolve();
         }
         else
         {
-            value = ((PsiReference) child).resolve();
+            value = child; //<-- a factory function
         }
         return value;
     }
@@ -114,8 +111,6 @@ public class Mappings
                 synchronized (usages)
                 {
                     usages.add(((UsageInfo2UsageAdapter) usage));
-                    String name = ((UsageInfo2UsageAdapter) usage).getElement().getText();
-                    System.out.print("found: " + name + "\n");
                 }
                 return true;
             }
