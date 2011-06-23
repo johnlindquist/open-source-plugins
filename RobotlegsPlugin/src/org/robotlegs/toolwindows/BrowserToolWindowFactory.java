@@ -13,6 +13,7 @@ import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ui.componentsList.layout.VerticalStackLayout;
+import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
@@ -26,6 +27,7 @@ import com.intellij.ui.content.ContentFactory;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.ui.table.JBTable;
 import com.intellij.usages.UsageInfo2UsageAdapter;
+import utils.RobotlegsMappingUtils;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
@@ -92,11 +94,9 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
     {
         contentManager.removeAllContents(true);
 
-        Mappings mappings = new Mappings();
-
         for (UsagesRequestValues value : values)
         {
-            Vector<UsageMapping> usageMappings = mappings.getMappingByClassAndFunctionProject(project, value.getClassQName(), value.getFunctions());
+            Vector<UsageMapping> usageMappings = RobotlegsMappingUtils.getMappingByClassAndFunctionProject(project, value.getClassQName(), value.getFunctions());
             Content content = createTable(project, contentManager, usageMappings, value.getTabName());
         }
     }
@@ -116,7 +116,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             table.setCellSelectionEnabled(true);
             JPanel jPanel = new JPanel();
             jPanel.setLayout(new VerticalStackLayout());
-            JButton button = new JButton(REFRESH_ALL);
+            JButton button = new JButton(REFRESH_ALL, IconLoader.getIcon("/vcs/refresh.png"));
             button.addMouseListener(new MouseAdapter()
             {
                 @Override public void mouseClicked(MouseEvent e)

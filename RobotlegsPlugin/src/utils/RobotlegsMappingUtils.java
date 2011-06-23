@@ -1,23 +1,15 @@
-package org.robotlegs.toolwindows;
+package utils;
 
-import com.intellij.find.FindManager;
-import com.intellij.find.findUsages.FindUsagesHandler;
-import com.intellij.find.findUsages.FindUsagesManager;
-import com.intellij.find.impl.FindManagerImpl;
 import com.intellij.lang.javascript.psi.JSFunction;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiReference;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.usages.Usage;
 import com.intellij.usages.UsageInfo2UsageAdapter;
-import com.intellij.util.Processor;
-import org.jetbrains.annotations.NotNull;
+import org.robotlegs.toolwindows.UsageMapping;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
@@ -26,13 +18,10 @@ import java.util.Vector;
  * Date: 6/19/11
  * Time: 7:41 PM
  */
-public class Mappings
+public class RobotlegsMappingUtils
 {
-    public Mappings()
-    {
-    }
 
-    public <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String classQName, String[] functionNames)
+    public static <K, V> Vector<UsageMapping> getMappingByClassAndFunctionProject(Project project, String classQName, String[] functionNames)
     {
         Vector<UsageMapping> fileToListOfMappings = new Vector<UsageMapping>();
         JSClass jsClass = (JSClass) JSResolveUtil.findClassByQName(classQName, GlobalSearchScope.allScope(project));
@@ -47,7 +36,7 @@ public class Mappings
                 if (foundFunction != null)
                 {
                     //Find all the usages of "mapView" and return then as UsageInfo
-                    List<UsageInfo2UsageAdapter> mapViewUsages = findUsagesOfPsiElement(foundFunction, project);
+                    List<UsageInfo2UsageAdapter> mapViewUsages = FindUsagesUtils.findUsagesOfPsiElement(foundFunction, project);
 
                     //Create a map of the first param (the "view") to the second param (the "mediator")
                     fileToListOfMappings.addAll(getMappedElementsFromUsage(mapViewUsages));
@@ -59,7 +48,7 @@ public class Mappings
     }
 
 
-    private Vector<UsageMapping> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> functionUsages)
+    private static Vector<UsageMapping> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> functionUsages)
     {
         Vector<UsageMapping> usageMappings = new Vector<UsageMapping>();
 
@@ -77,7 +66,7 @@ public class Mappings
                 PsiElement[] children = context.getChildren()[1].getChildren();
                 for (PsiElement child : children)
                 {
-                    usageMapping.add(resolveElement(child));
+                    usageMapping.add(ResolveUtils.resolveElement(child));
                 }
 
                 usageMappings.add(usageMapping);
@@ -85,41 +74,6 @@ public class Mappings
 
         }
         return usageMappings;
-    }
-
-    private PsiElement resolveElement(PsiElement child)
-    {
-        PsiElement value;
-        if (child instanceof PsiReference)
-        {
-            value = ((PsiReference) child).resolve();
-        }
-        else
-        {
-            value = child;
-        }
-        return value;
-    }
-
-    public static List<UsageInfo2UsageAdapter> findUsagesOfPsiElement(PsiElement psiElement, Project project)
-    {
-        final List<UsageInfo2UsageAdapter> usages = new ArrayList<UsageInfo2UsageAdapter>();
-        Processor<Usage> collect = new Processor<Usage>()
-        {
-            public boolean process(@NotNull Usage usage)
-            {
-                synchronized (usages)
-                {
-                    usages.add(((UsageInfo2UsageAdapter) usage));
-                }
-                return true;
-            }
-        };
-
-        FindUsagesManager findUsagesManager = ((FindManagerImpl) FindManager.getInstance(project)).getFindUsagesManager();
-        FindUsagesHandler findUsagesHandler = findUsagesManager.getFindUsagesHandler(psiElement, false);
-        findUsagesManager.processUsages(findUsagesHandler, collect);
-        return usages;
     }
 
 }

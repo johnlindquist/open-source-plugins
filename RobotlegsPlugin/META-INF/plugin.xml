@@ -37,5 +37,10 @@
     </extensions>
 
     <actions>
+        <action id="ToggleToMappedClass" class="actions.ToggleToMappedClassAction" text="ToggleToMappedClassAction"
+                description="Toggle to a Class mapped in a Context">
+            <add-to-group group-id="WebOpenInActionGroup" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt 6"/>
+        </action>
     </actions>
 </idea-plugin>
