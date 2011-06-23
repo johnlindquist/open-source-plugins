@@ -96,7 +96,7 @@ public class Mappings
         }
         else
         {
-            value = child; //<-- a factory function
+            value = child;
         }
         return value;
     }

@@ -3,13 +3,19 @@
     <name>Robotlegs</name>
     <description><![CDATA[
     Adds various features to support Robotlegs. While in beta, log bugs here:
-        http://j.mp/robotlegs-plugin-bugs
+        https://github.com/johnlindquist/open-source-plugins/issues
     ]]>
     </description>
     <change-notes><![CDATA[
-    0.1 Initial Beta Release: Browse your project for mapped classes and inject a class with right-click.
-    ]]></change-notes>
-    <version>0.1</version>
+        <html>
+        <dl>
+            <dt>0.2 Fixed bugs from real-world user-testing (handling conditionals, multiple args, etc)</dt>
+            <dt>0.1 Initial Beta Release: Browse your project for mapped classes and inject a class with
+                right-click.</dt>
+        </dl>
+        </html>
+        ]]></change-notes>
+    <version>0.2</version>
     <category>ActionScript</category>
     <vendor url="http://johnlindquist.com" email="johnlindquist@gmail.com">johnlindquist</vendor>
 

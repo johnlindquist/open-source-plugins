@@ -20,6 +20,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiNamedElement;
+import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 import com.intellij.ui.content.ContentManager;
@@ -125,7 +126,8 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             });
             jPanel.add(button);
             jPanel.add(table);
-            Content content = ContentFactory.SERVICE.getInstance().createContent(jPanel, tableName, false);
+            JBScrollPane jbScrollPane = new JBScrollPane(jPanel);
+            Content content = ContentFactory.SERVICE.getInstance().createContent(jbScrollPane, tableName, false);
             contentManager.addContent(content);
 
             table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
