@@ -37,10 +37,10 @@
     </extensions>
 
     <actions>
-        <action id="ToggleToMappedClass" class="actions.ToggleToMappedClassAction" text="ToggleToMappedClassAction"
+        <action id="ToggleToMappedClass" class="actions.ToggleToMappedClassAction" text="Toggle to Mapped Class"
                 description="Toggle to a Class mapped in a Context">
             <add-to-group group-id="WebOpenInActionGroup" anchor="last"/>
-            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl alt 6"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="Control Comma"/>
         </action>
     </actions>
 </idea-plugin>

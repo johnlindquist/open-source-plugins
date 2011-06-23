@@ -5,7 +5,6 @@ import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.usages.UsageInfo2UsageAdapter;
 import org.robotlegs.toolwindows.UsageMapping;
@@ -39,7 +38,7 @@ public class RobotlegsMappingUtils
                     List<UsageInfo2UsageAdapter> mapViewUsages = FindUsagesUtils.findUsagesOfPsiElement(foundFunction, project);
 
                     //Create a map of the first param (the "view") to the second param (the "mediator")
-                    fileToListOfMappings.addAll(getMappedElementsFromUsage(mapViewUsages));
+                    fileToListOfMappings.addAll(getMappedElementsFromFunctionUsages(mapViewUsages));
                 }
             }
         }
@@ -48,13 +47,12 @@ public class RobotlegsMappingUtils
     }
 
 
-    private static Vector<UsageMapping> getMappedElementsFromUsage(List<UsageInfo2UsageAdapter> functionUsages)
+    private static Vector<UsageMapping> getMappedElementsFromFunctionUsages(List<UsageInfo2UsageAdapter> functionUsages)
     {
         Vector<UsageMapping> usageMappings = new Vector<UsageMapping>();
 
         for (UsageInfo2UsageAdapter functionUsage : functionUsages)
         {
-            PsiFile containingFile = functionUsage.getElement().getContainingFile();
             UsageMapping usageMapping = new UsageMapping(functionUsage);
 
             //move "up" from function: mediatorMap.mapView -> mediatorMap.mapView(View, Mediator)
