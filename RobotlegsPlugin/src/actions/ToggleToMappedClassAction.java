@@ -1,16 +1,26 @@
 package actions;
 
+import com.intellij.lang.javascript.psi.JSFile;
+import com.intellij.lang.javascript.psi.ecmal4.JSClass;
+import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
+import com.intellij.lang.javascript.psi.resolve.JSInheritanceUtil;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.LangDataKeys;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.ScrollType;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopup;
-import com.intellij.openapi.ui.popup.PopupChooserBuilder;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.ui.components.JBList;
+import com.intellij.psi.PsiReference;
+import com.intellij.usages.UsageInfo2UsageAdapter;
+import enums.RobotlegsEnum;
+import utils.FindUsagesUtils;
 
-import javax.swing.*;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * User: John Lindquist
@@ -24,52 +34,53 @@ public class ToggleToMappedClassAction extends AnAction
         Project project = e.getData(LangDataKeys.PROJECT);
         PsiFile file = e.getData(LangDataKeys.PSI_FILE);
 
-        /*if (file instanceof JSFile)
+        if (file instanceof JSFile)
         {
             JSClass jsClass = JSPsiImplUtils.findClass((JSFile) file);
 
-            List<UsageInfo2UsageAdapter> usages = FindUsagesUtils.findUsagesOfPsiElement(jsClass, project);
-            for (UsageInfo2UsageAdapter usage : usages)
+            for (RobotlegsEnum classType : RobotlegsEnum.values())
             {
-                PsiElement element = usage.getElement();
-                PsiElement contextOneLevelUp = element.getContext();
-                if (contextOneLevelUp != null)
+                //todo: determine if checking type is the best approach
+                if (isType(jsClass, classType.getClassQName()))
                 {
-                    PsiElement contextTwoLevelsUp = contextOneLevelUp.getContext();
-                    if (contextTwoLevelsUp != null)
+                    if (classType == RobotlegsEnum.EVENT)
                     {
-                        PsiElement[] children = contextTwoLevelsUp.getChildren();
-                        PsiElement psiElement = children[0].getLastChild();
-                        String text = null;
-                        if (psiElement != null)
-                        {
-                            text = psiElement.getText();
-                            if (text.equals("mapView") || text.equals("mapEvent") || text.equals("mapSignalClass"))
-                            {
-                                PsiElement otherElement = null;
-                                if (isElementFirstParam(element))
-                                {
-                                    otherElement = getParamToTheRightOfElement(element);
-                                }
-                                else
-                                {
-                                    otherElement = getParamToTheLeftOfElement(element);
-                                }
-                                PsiReference psiReference = (PsiReference) otherElement;
-                                PsiFile containingFile = psiReference.resolve().getContainingFile();
-                                VirtualFile virtualFile = containingFile.getVirtualFile();
-                                FileEditorManager.getInstance(project).openFile(virtualFile, true);
-                                Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+                        return;
+                    }
 
-                                selectedTextEditor.getCaretModel().moveToOffset(JSPsiImplUtils.findClass((JSFile) containingFile).getTextOffset());
-                                selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
-                            }
-                        }
+                    PsiElement functionContext = findMappingFunctionContext(classType.getMappingFunction(), jsClass, project);
+                    if (functionContext != null)
+                    {
+                        PsiElement mappedElement = getMappedElement(functionContext, classType.getMappingParamIndex());
+                        openClassInEditor(project, mappedElement);
+                        return;
                     }
                 }
             }
-        }*/
 
+        }
+    }
+
+    private PsiElement getMappedElement(PsiElement functionElement, int paramIndex)
+    {
+        PsiElement paramsElement = functionElement.getChildren()[1];
+
+        return paramsElement.getChildren()[paramIndex];
+    }
+
+    private void openClassInEditor(Project project, PsiElement classReference)
+    {
+        PsiReference psiReference = (PsiReference) classReference;
+        PsiFile containingFile = psiReference.resolve().getContainingFile();
+        VirtualFile virtualFile = containingFile.getVirtualFile();
+        FileEditorManager.getInstance(project).openFile(virtualFile, true);
+        Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+
+        selectedTextEditor.getCaretModel().moveToOffset(JSPsiImplUtils.findClass((JSFile) containingFile).getTextOffset());
+        selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+    }
+
+/*
         DefaultListModel model = new DefaultListModel();
         model.addElement("Hello");
         model.addElement("There");
@@ -78,7 +89,49 @@ public class ToggleToMappedClassAction extends AnAction
         JBPopup popup = popupChooserBuilder.createPopup();
         popup.showCenteredInCurrentWindow(project);
 
+*/
 
+
+    private PsiElement findMappingFunctionContext(String functionName, JSClass jsClass, Project project)
+    {
+        List<UsageInfo2UsageAdapter> usages = FindUsagesUtils.findUsagesOfPsiElement(jsClass, project);
+        for (UsageInfo2UsageAdapter usage : usages)
+        {
+            PsiElement element = usage.getElement();
+            PsiElement contextOneLevelUp = element.getContext();
+            if (contextOneLevelUp != null)
+            {
+                PsiElement contextTwoLevelsUp = contextOneLevelUp.getContext();
+                if (contextTwoLevelsUp != null)
+                {
+                    PsiElement[] children = contextTwoLevelsUp.getChildren();
+                    PsiElement psiElement = children[0].getLastChild();
+                    String text = null;
+                    if (psiElement != null)
+                    {
+                        text = psiElement.getText();
+                        if (text.equals(functionName))
+                        {
+                            return contextTwoLevelsUp;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isType(JSClass jsClass, String classQName)
+    {
+        Collection<JSClass> parents = JSInheritanceUtil.findAllParentsForClass(jsClass, true);
+        for (JSClass parent : parents)
+        {
+            if (parent.getQualifiedName().equals(classQName))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isElementFirstParam(PsiElement element)

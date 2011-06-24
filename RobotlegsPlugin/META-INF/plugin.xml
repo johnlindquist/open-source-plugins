@@ -19,6 +19,7 @@
     <category>ActionScript</category>
     <vendor url="http://johnlindquist.com" email="johnlindquist@gmail.com">johnlindquist</vendor>
 
+    <idea-version since-build="8000"/>
 
     <depends>JavaScript</depends>
     <depends>com.intellij.modules.lang</depends>
@@ -37,10 +38,10 @@
     </extensions>
 
     <actions>
-        <action id="ToggleToMappedClass" class="actions.ToggleToMappedClassAction" text="Toggle to Mapped Class"
+        <action id="ToggleToMappedClass" class="actions.ToggleToMappedClassAction" text="Go to Mapped Class"
                 description="Toggle to a Class mapped in a Context">
-            <add-to-group group-id="WebOpenInActionGroup" anchor="last"/>
-            <keyboard-shortcut keymap="$default" first-keystroke="Control Comma"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl G"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>
