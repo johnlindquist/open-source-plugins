@@ -3,27 +3,31 @@
     <name>Robotlegs</name>
     <description><![CDATA[
         <html>
-        <dl>
-            <dt>Adds a Robotlegs tool window to let you explore the mappings in your project.</dt>
+        <h3>Robotlegs Support for IntelliJ</h3>
+        <ul>
+            <li>Adds a Robotlegs tool window to let you explore the mappings in your project.</li>
 
-            <dt>Use CTRL + SHIFT + G to jump to a mapped class (from view->mediator, event->command, etc)
-            </dt>
+            <li>Use CTRL + SHIFT + G to jump to a mapped class (from view->mediator, event->command, etc)
+            </li>
 
-            <dt>File issues here: https://github.com/johnlindquist/open-source-plugins/issues
-            </dt>
-        </dl>
+            <li>File issues here: https://github.com/johnlindquist/open-source-plugins/issues
+            </li>
+        </ul>
         </html>
         ]]>
     </description>
     <change-notes><![CDATA[
         <html>
         <dl>
-            <dt>0.3 Added switching between mapped classes with ctrl+shift+G (think "Go to mapped class"). Next steps: I
-                need to clean up the code base before taking it any further, then start work on code generation.</dt>
-            <dt>0.2 Fixed bugs from real-world user-testing (handling conditionals, multiple args, etc)
-            </dt>
-            <dt>0.1 Initial Beta Release: Browse your project for mapped classes and inject a class with
-                right-click.</dt>
+            <dt>0.3</dt>
+            <dd>Added switching between mapped classes with ctrl+shift+G (think "Go to mapped class"). Next steps: I
+                need to clean up the code base before taking it any further, then start work on code generation.</dd><br>
+            <dt>0.2</dt>
+            <dd>Fixed bugs from real-world user-testing (handling conditionals, multiple args, etc)
+            </dd><br>
+            <dt>0.1</dt>
+            <dd>Initial Beta Release: Browse your project for mapped classes and inject a class with
+                right-click.</dd><br>
         </dl>
         </html>
         ]]></change-notes>
@@ -36,6 +40,7 @@
     <depends>JavaScript</depends>
     <depends>com.intellij.modules.lang</depends>
     <depends>com.intellij.modules.xml</depends>
+    <depends>com.intellij.modules.ultimate</depends>
 
     <application-components>
         <!-- Add your application components here -->
@@ -52,7 +57,7 @@
 
     <actions>
         <action id="ToggleToMappedClass" class="actions.ToggleToMappedClassAction" text="Go to Mapped Class"
-                description="Toggle to a Class mapped in a Context">
+                description="Jump to the Class mapped to the current Class in a Context">
             <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl G"/>
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
