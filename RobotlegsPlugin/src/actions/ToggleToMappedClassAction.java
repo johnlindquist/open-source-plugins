@@ -1,23 +1,16 @@
 package actions;
 
-import com.intellij.lang.javascript.psi.JSFile;
-import com.intellij.lang.javascript.psi.ecmal4.JSClass;
-import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.LangDataKeys;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.ScrollType;
-import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.ui.popup.JBPopup;
+import com.intellij.openapi.ui.popup.PopupChooserBuilder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiReference;
-import com.intellij.usages.UsageInfo2UsageAdapter;
-import utils.FindUsagesUtils;
+import com.intellij.ui.components.JBList;
 
-import java.util.List;
+import javax.swing.*;
 
 /**
  * User: John Lindquist
@@ -31,7 +24,7 @@ public class ToggleToMappedClassAction extends AnAction
         Project project = e.getData(LangDataKeys.PROJECT);
         PsiFile file = e.getData(LangDataKeys.PSI_FILE);
 
-        if (file instanceof JSFile)
+        /*if (file instanceof JSFile)
         {
             JSClass jsClass = JSPsiImplUtils.findClass((JSFile) file);
 
@@ -75,7 +68,17 @@ public class ToggleToMappedClassAction extends AnAction
                     }
                 }
             }
-        }
+        }*/
+
+        DefaultListModel model = new DefaultListModel();
+        model.addElement("Hello");
+        model.addElement("There");
+        JBList list = new JBList(model);
+        PopupChooserBuilder popupChooserBuilder = new PopupChooserBuilder(list);
+        JBPopup popup = popupChooserBuilder.createPopup();
+        popup.showCenteredInCurrentWindow(project);
+
+
     }
 
     private boolean isElementFirstParam(PsiElement element)
