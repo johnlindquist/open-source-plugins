@@ -1,6 +1,9 @@
 package actions;
 
+import com.intellij.lang.javascript.flex.XmlBackedJSClassImpl;
+import com.intellij.lang.javascript.psi.JSElement;
 import com.intellij.lang.javascript.psi.JSFile;
+import com.intellij.lang.javascript.psi.JSVariable;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
 import com.intellij.lang.javascript.psi.resolve.JSInheritanceUtil;
@@ -11,14 +14,26 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.popup.JBPopup;
+import com.intellij.openapi.ui.popup.PopupChooserBuilder;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiReference;
+import com.intellij.psi.xml.XmlDocument;
+import com.intellij.psi.xml.XmlFile;
+import com.intellij.psi.xml.XmlTag;
+import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBList;
 import com.intellij.usages.UsageInfo2UsageAdapter;
 import enums.RobotlegsEnum;
 import utils.FindUsagesUtils;
 
+import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import java.awt.*;
+import java.awt.event.*;
 import java.util.Collection;
 import java.util.List;
 
@@ -31,34 +46,142 @@ public class ToggleToMappedClassAction extends AnAction
 {
     public void actionPerformed(AnActionEvent e)
     {
-        Project project = e.getData(LangDataKeys.PROJECT);
+        final Project project = e.getData(LangDataKeys.PROJECT);
         PsiFile file = e.getData(LangDataKeys.PSI_FILE);
 
-        if (file instanceof JSFile)
-        {
-            JSClass jsClass = JSPsiImplUtils.findClass((JSFile) file);
+        final JSClass jsClass = getJSClassFromFile(file);
 
-            for (RobotlegsEnum classType : RobotlegsEnum.values())
+        if (jsClass != null)
+        {
+            for (final RobotlegsEnum classType : RobotlegsEnum.values())
             {
-                //todo: determine if checking type is the best approach
+                //todo: determine if checking type is the best approach since Command isn't always subclassed
                 if (isType(jsClass, classType.getClassQName()))
                 {
                     if (classType == RobotlegsEnum.EVENT)
                     {
+                        DefaultListModel model = new DefaultListModel();
+                        for (JSVariable jsVariable : jsClass.getFields())
+                        {
+                            model.addElement(jsVariable);
+                        }
+                        final JBList list = new JBList(model);
+                        list.setCellRenderer(new ListCellRenderer()
+                        {
+                            @Override
+                            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus)
+                            {
+                                @SuppressWarnings({"unchecked"})
+                                final JComponent comp = new JBLabel(((JSVariable) value).getName());
+                                comp.setOpaque(true);
+                                if (isSelected)
+                                {
+                                    comp.setBackground(list.getSelectionBackground());
+                                    comp.setForeground(list.getSelectionForeground());
+                                }
+                                else
+                                {
+                                    comp.setBackground(list.getBackground());
+                                    comp.setForeground(list.getForeground());
+                                }
+                                return comp;
+                            }
+                        });
+
+
+                        list.getSelectionModel().addListSelectionListener(new ListSelectionListener()
+                        {
+                            @Override public void valueChanged(ListSelectionEvent e)
+                            {
+                                Object source = e.getSource();
+                                System.out.println(source.toString());
+                            }
+                        });
+
+
+                       /* list.addKeyListener(new KeyAdapter()
+                        {
+                            @Override public void keyReleased(KeyEvent e)
+                            {
+                                if (e.getKeyCode() == KeyEvent.VK_ENTER)
+                                {
+                                    Object selectedValue = list.getSelectedValue();
+                                    openMappedElement((JSElement) selectedValue, classType, project);
+                                }
+                            }
+                        });*/
+
+
+                        PopupChooserBuilder popupChooserBuilder = new PopupChooserBuilder(list);
+                        JBPopup popup = popupChooserBuilder.createPopup();
+                        popup.showCenteredInCurrentWindow(project);
+
+
+                        list.addMouseListener(new MouseAdapter()
+                        {
+                            @Override public void mousePressed(MouseEvent e)
+                            {
+                                System.out.println(e.toString());
+                                openMappedElement((JSElement) list.getSelectedValue(), classType, project);
+                            }
+                        });
+
+                        list.addKeyListener(new KeyAdapter()
+                        {
+                            @Override public void keyPressed(KeyEvent e)
+                            {
+                                if (e.getKeyCode() == KeyEvent.VK_ENTER)
+                                {
+                                    System.out.println(e.toString());
+                                    openMappedElement((JSElement) list.getSelectedValue(), classType, project);
+                                }
+                            }
+                        });
+
+
                         return;
                     }
 
-                    PsiElement functionContext = findMappingFunctionContext(classType.getMappingFunction(), jsClass, project);
-                    if (functionContext != null)
+                    if (openMappedElement(jsClass, classType, project))
                     {
-                        PsiElement mappedElement = getMappedElement(functionContext, classType.getMappingParamIndex());
-                        openClassInEditor(project, mappedElement);
                         return;
                     }
                 }
             }
-
         }
+    }
+
+    private boolean openMappedElement(JSElement jsElement, RobotlegsEnum classType, Project project)
+    {
+        PsiElement functionContext = findMappingFunctionContext(classType.getMappingFunction(), jsElement, project);
+        if (functionContext != null)
+        {
+            PsiElement mappedElement = getMappedElement(functionContext, classType.getMappingParamIndex());
+            openClassInEditor(project, mappedElement);
+            return true;
+        }
+        return false;
+    }
+
+    private JSClass getJSClassFromFile(PsiFile file)
+    {
+        JSClass jsClass = null;
+        if (file instanceof XmlFile)
+        {
+            jsClass = XmlBackedJSClassImpl.getXmlBackedClass(getRootTag((XmlFile) file));
+        }
+
+        if (file instanceof JSFile)
+        {
+            jsClass = JSPsiImplUtils.findClass((JSFile) file);
+        }
+        return jsClass;
+    }
+
+    private static XmlTag getRootTag(XmlFile xmlFile)
+    {
+        final XmlDocument document = xmlFile.getDocument();
+        return document != null ? document.getRootTag() : null;
     }
 
     private PsiElement getMappedElement(PsiElement functionElement, int paramIndex)
@@ -76,25 +199,16 @@ public class ToggleToMappedClassAction extends AnAction
         FileEditorManager.getInstance(project).openFile(virtualFile, true);
         Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
 
-        selectedTextEditor.getCaretModel().moveToOffset(JSPsiImplUtils.findClass((JSFile) containingFile).getTextOffset());
-        selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+        if (containingFile instanceof JSFile) //it might be an MXML file
+        {
+            selectedTextEditor.getCaretModel().moveToOffset(JSPsiImplUtils.findClass((JSFile) containingFile).getTextOffset());
+            selectedTextEditor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+        }
     }
 
-/*
-        DefaultListModel model = new DefaultListModel();
-        model.addElement("Hello");
-        model.addElement("There");
-        JBList list = new JBList(model);
-        PopupChooserBuilder popupChooserBuilder = new PopupChooserBuilder(list);
-        JBPopup popup = popupChooserBuilder.createPopup();
-        popup.showCenteredInCurrentWindow(project);
-
-*/
-
-
-    private PsiElement findMappingFunctionContext(String functionName, JSClass jsClass, Project project)
+    private PsiElement findMappingFunctionContext(String functionName, JSElement jsElement, Project project)
     {
-        List<UsageInfo2UsageAdapter> usages = FindUsagesUtils.findUsagesOfPsiElement(jsClass, project);
+        List<UsageInfo2UsageAdapter> usages = FindUsagesUtils.findUsagesOfPsiElement(jsElement, project);
         for (UsageInfo2UsageAdapter usage : usages)
         {
             PsiElement element = usage.getElement();
