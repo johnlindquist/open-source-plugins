@@ -2,15 +2,26 @@
              xmlns:xi="http://www.w3.org/2001/XInclude">
     <name>Robotlegs</name>
     <description><![CDATA[
-    Adds various features to support Robotlegs. While in beta, log bugs here:
-        https://github.com/johnlindquist/open-source-plugins/issues
-    ]]>
+        <html>
+        <dl>
+            <dt>Adds a Robotlegs tool window to let you explore the mappings in your project.</dt>
+
+            <dt>Use CTRL + SHIFT + G to jump to a mapped class (from view->mediator, event->command, etc)
+            </dt>
+
+            <dt>File issues here: https://github.com/johnlindquist/open-source-plugins/issues
+            </dt>
+        </dl>
+        </html>
+        ]]>
     </description>
     <change-notes><![CDATA[
         <html>
         <dl>
-            <dt>0.3 Added switching between mapped classes with ctrl+shift+G (think "Go to mapped class"). Next steps: I need to clean up the code base before taking it any further, then start work on code generation.</dt>
-            <dt>0.2 Fixed bugs from real-world user-testing (handling conditionals, multiple args, etc)</dt>
+            <dt>0.3 Added switching between mapped classes with ctrl+shift+G (think "Go to mapped class"). Next steps: I
+                need to clean up the code base before taking it any further, then start work on code generation.</dt>
+            <dt>0.2 Fixed bugs from real-world user-testing (handling conditionals, multiple args, etc)
+            </dt>
             <dt>0.1 Initial Beta Release: Browse your project for mapped classes and inject a class with
                 right-click.</dt>
         </dl>
