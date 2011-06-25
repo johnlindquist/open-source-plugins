@@ -127,6 +127,8 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             jPanel.add(button);
             jPanel.add(table);
             JBScrollPane jbScrollPane = new JBScrollPane(jPanel);
+            jbScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
             Content content = ContentFactory.SERVICE.getInstance().createContent(jbScrollPane, tableName, false);
             contentManager.addContent(content);
 

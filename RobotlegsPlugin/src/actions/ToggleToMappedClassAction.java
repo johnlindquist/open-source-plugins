@@ -4,6 +4,7 @@ import com.intellij.lang.javascript.flex.XmlBackedJSClassImpl;
 import com.intellij.lang.javascript.psi.JSElement;
 import com.intellij.lang.javascript.psi.JSFile;
 import com.intellij.lang.javascript.psi.JSVariable;
+import com.intellij.lang.javascript.psi.ecmal4.JSAttributeList;
 import com.intellij.lang.javascript.psi.ecmal4.JSClass;
 import com.intellij.lang.javascript.psi.impl.JSPsiImplUtils;
 import com.intellij.lang.javascript.psi.resolve.JSInheritanceUtil;
@@ -33,7 +34,10 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.Collection;
 import java.util.List;
 
@@ -60,85 +64,7 @@ public class ToggleToMappedClassAction extends AnAction
                 {
                     if (classType == RobotlegsEnum.EVENT)
                     {
-                        DefaultListModel model = new DefaultListModel();
-                        for (JSVariable jsVariable : jsClass.getFields())
-                        {
-                            model.addElement(jsVariable);
-                        }
-                        final JBList list = new JBList(model);
-                        list.setCellRenderer(new ListCellRenderer()
-                        {
-                            @Override
-                            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus)
-                            {
-                                @SuppressWarnings({"unchecked"})
-                                final JComponent comp = new JBLabel(((JSVariable) value).getName());
-                                comp.setOpaque(true);
-                                if (isSelected)
-                                {
-                                    comp.setBackground(list.getSelectionBackground());
-                                    comp.setForeground(list.getSelectionForeground());
-                                }
-                                else
-                                {
-                                    comp.setBackground(list.getBackground());
-                                    comp.setForeground(list.getForeground());
-                                }
-                                return comp;
-                            }
-                        });
-
-
-                        list.getSelectionModel().addListSelectionListener(new ListSelectionListener()
-                        {
-                            @Override public void valueChanged(ListSelectionEvent e)
-                            {
-                                Object source = e.getSource();
-                                System.out.println(source.toString());
-                            }
-                        });
-
-
-                       /* list.addKeyListener(new KeyAdapter()
-                        {
-                            @Override public void keyReleased(KeyEvent e)
-                            {
-                                if (e.getKeyCode() == KeyEvent.VK_ENTER)
-                                {
-                                    Object selectedValue = list.getSelectedValue();
-                                    openMappedElement((JSElement) selectedValue, classType, project);
-                                }
-                            }
-                        });*/
-
-
-                        PopupChooserBuilder popupChooserBuilder = new PopupChooserBuilder(list);
-                        JBPopup popup = popupChooserBuilder.createPopup();
-                        popup.showCenteredInCurrentWindow(project);
-
-
-                        list.addMouseListener(new MouseAdapter()
-                        {
-                            @Override public void mousePressed(MouseEvent e)
-                            {
-                                System.out.println(e.toString());
-                                openMappedElement((JSElement) list.getSelectedValue(), classType, project);
-                            }
-                        });
-
-                        list.addKeyListener(new KeyAdapter()
-                        {
-                            @Override public void keyPressed(KeyEvent e)
-                            {
-                                if (e.getKeyCode() == KeyEvent.VK_ENTER)
-                                {
-                                    System.out.println(e.toString());
-                                    openMappedElement((JSElement) list.getSelectedValue(), classType, project);
-                                }
-                            }
-                        });
-
-
+                        showListOfPublicStatics(project, jsClass, classType);
                         return;
                     }
 
@@ -149,6 +75,103 @@ public class ToggleToMappedClassAction extends AnAction
                 }
             }
         }
+    }
+
+    private void showListOfPublicStatics(final Project project, JSClass jsClass, final RobotlegsEnum classType)
+    {
+        DefaultListModel model = new DefaultListModel();
+        for (JSVariable jsVariable : jsClass.getFields())
+        {
+            if (isPublicStatic(jsVariable))
+            {
+                model.addElement(jsVariable);
+            }
+        }
+        final JBList list = new JBList(model);
+        list.setCellRenderer(new ListCellRenderer()
+        {
+            @Override
+            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus)
+            {
+                @SuppressWarnings({"unchecked"})
+                final JComponent comp = new JBLabel(((JSVariable) value).getName());
+                comp.setOpaque(true);
+                if (isSelected)
+                {
+                    comp.setBackground(list.getSelectionBackground());
+                    comp.setForeground(list.getSelectionForeground());
+                }
+                else
+                {
+                    comp.setBackground(list.getBackground());
+                    comp.setForeground(list.getForeground());
+                }
+                return comp;
+            }
+        });
+
+
+        list.getSelectionModel().addListSelectionListener(new ListSelectionListener()
+        {
+            @Override public void valueChanged(ListSelectionEvent e)
+            {
+                Object source = e.getSource();
+                System.out.println(source.toString());
+            }
+        });
+
+
+        /* list.addKeyListener(new KeyAdapter()
+{
+@Override public void keyReleased(KeyEvent e)
+{
+ if (e.getKeyCode() == KeyEvent.VK_ENTER)
+ {
+     Object selectedValue = list.getSelectedValue();
+     openMappedElement((JSElement) selectedValue, classType, project);
+ }
+}
+});*/
+
+
+        PopupChooserBuilder popupChooserBuilder = new PopupChooserBuilder(list);
+        JBPopup popup = popupChooserBuilder.createPopup();
+        popup.showCenteredInCurrentWindow(project);
+
+
+        list.addMouseListener(new MouseAdapter()
+        {
+            @Override public void mousePressed(MouseEvent e)
+            {
+                System.out.println(e.toString());
+                openMappedElement((JSElement) list.getSelectedValue(), classType, project);
+            }
+        });
+
+        list.addKeyListener(new KeyAdapter()
+        {
+            @Override public void keyPressed(KeyEvent e)
+            {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER)
+                {
+                    System.out.println(e.toString());
+                    openMappedElement((JSElement) list.getSelectedValue(), classType, project);
+                }
+            }
+        });
+
+
+        return;
+    }
+
+    private boolean isPublicStatic(JSVariable jsVariable)
+    {
+        JSAttributeList attributeList = jsVariable.getAttributeList();
+        if (attributeList.hasModifier(JSAttributeList.ModifierType.STATIC) && attributeList.getAccessType() == JSAttributeList.AccessType.PUBLIC)
+        {
+            return true;
+        }
+        return false;
     }
 
     private boolean openMappedElement(JSElement jsElement, RobotlegsEnum classType, Project project)
