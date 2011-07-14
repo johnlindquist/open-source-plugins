@@ -1,0 +1,32 @@
+<idea-plugin version="2">
+    <name>Signals</name>
+
+    <description>Support for Signals (https://github.com/robertpenner/as3-signals/wiki)
+    </description>
+    <change-notes>0.1 initial release for public testing</change-notes>
+    <version>0.1</version>
+    <category>ActionScript</category>
+    <vendor url="http://johnlindquist.com" email="johnlindquist@gmail.com">johnlindquist</vendor>
+    <idea-version since-build="8000"/>
+
+
+    <depends>JavaScript</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.xml</depends>
+    <depends>com.intellij.modules.ultimate</depends>
+
+
+    <project-components>
+        <component>
+            <implementation-class>org.osflash.signals.SignalsSupport</implementation-class>
+        </component>
+    </project-components>
+
+    <extensions defaultExtensionNs="com.intellij">
+
+        <intentionAction>
+            <className>org.osflash.signals.ActionScriptGenerateSignalHandlerAction</className>
+            <category>ActionScript</category>
+        </intentionAction>
+    </extensions>
+</idea-plugin>
