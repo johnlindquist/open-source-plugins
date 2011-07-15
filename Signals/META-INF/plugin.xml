@@ -4,7 +4,7 @@
     <description>Support for Signals (https://github.com/robertpenner/as3-signals/wiki)
     </description>
     <change-notes>0.1 initial release for public testing</change-notes>
-    <version>0.1</version>
+    <version>0.1.1</version>
     <category>ActionScript</category>
     <vendor url="http://johnlindquist.com" email="johnlindquist@gmail.com">johnlindquist</vendor>
     <idea-version since-build="8000"/>

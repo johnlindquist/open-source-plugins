@@ -7,6 +7,8 @@ import com.intellij.lang.javascript.psi.impl.JSReferenceExpressionImpl;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.CaretModel;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.util.TextRange;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiReference;
@@ -15,8 +17,6 @@ import com.intellij.psi.search.searches.ReferencesSearch;
 import com.intellij.psi.util.PsiTreeUtil;
 
 import java.util.Collection;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * User: John Lindquist
@@ -45,30 +45,24 @@ public class SignalsUtils{
      * @param paramsText
      */
     public static String buildParametersFromClassParameters(String paramsText){
-        String result = "";
         String substring = paramsText.substring(1, paramsText.length() - 1);
         String[] split = substring.split(",");
 
-        result = "(";
-        for (int i = 0, splitLength = split.length; i < splitLength; i++){
-            String s = split[i];
-            Matcher m = Pattern.compile("\\w").matcher(s);
-
-            StringBuilder stringBuilder = new StringBuilder();
-
-            m.find();
-            int start = m.start();
-            stringBuilder.append(s.substring(start, start + 1).toLowerCase());
-            stringBuilder.append(s.substring(start + 1));
-
-            result = result + stringBuilder.toString() + ":" + s;
-            if (i < split.length - 1){
-                result = result + ", ";
-            }
+        String separator = ", ";
+        String params = "";
+        for (String s : split){
+            s = s.replaceAll("[ ]", ""); //strip spaces
+            String decapitalize = StringUtil.decapitalize(s); //intelligent lowercase
+            params = params + decapitalize + ":" + s + separator;
         }
+        params = removeLastSeparatorFromString(params, separator);
+        return "(" + params + ")";
+    }
 
-        result = result + ")";
-        return result;
+    private static String removeLastSeparatorFromString(String result, String separator){
+        int startOffset = result.lastIndexOf(separator);
+        int endOffset = startOffset + separator.length();
+        return StringUtil.replaceSubstring(result, new TextRange(startOffset, endOffset), "");
     }
 
     public static JSArgumentList getStringParametersFromSignalReference(final PsiReference signal){
