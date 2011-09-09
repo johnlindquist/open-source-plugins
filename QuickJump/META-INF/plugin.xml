@@ -1,0 +1,43 @@
+<idea-plugin url="https://github.com/johnlindquist/open-source-plugins"
+             version="2">
+    <name>QuickJump</name>
+
+    <description>QuickJump allows you to quickly navigate the cursor to any position visible in the editor. Simply hit "ctrl+;" then start typing. Once options appear, hit Enter or the number key corresponding to the position where you want the cursor to move.
+    </description>
+    <change-notes><![CDATA[
+        <html>
+        <dl>
+            <dt>1.0</dt>
+            <dd>Initial Release</dd>
+        </dl>
+        </html>
+        ]]>
+    </change-notes>
+    <version>1.0</version>
+    <category>Navigation</category>
+    <vendor url="http://johnlindquist.com"
+            email="johnlindquist@gmail.com">johnlindquist
+    </vendor>
+
+
+    <idea-version since-build="8000"/>
+
+    <project-components>
+        <!-- Add your project components here -->
+    </project-components>
+
+    <actions>
+        <!-- Add your actions here -->
+        <action id="QuickJumpAction"
+                class="com.johnlindquist.quickjump.QuickJumpAction"
+                text="QuickJumpAction"
+                description="A faster way to find">
+            <keyboard-shortcut keymap="$default"
+                               first-keystroke="ctrl SEMICOLON"/>
+        </action>
+    </actions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
+</idea-plugin>
