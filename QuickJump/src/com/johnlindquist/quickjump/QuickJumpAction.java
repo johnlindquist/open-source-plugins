@@ -73,6 +73,11 @@ public class QuickJumpAction extends AnAction{
         popup = popupBuilder.createPopup();
 
         popup.show(guessBestLocation(editor));
+        popup.addListener(new JBPopupAdapter(){
+            @Override public void onClosed(LightweightWindowEvent event){
+                searchBox.hideBalloons();
+            }
+        });
         searchBox.grabFocus();
     }
 
@@ -105,6 +110,7 @@ public class QuickJumpAction extends AnAction{
     }
 
     protected void moveCaret(UsageInfo usageInfo){
+        editor.getSelectionModel().removeSelection();
         editor.getCaretModel().moveToOffset(usageInfo.getNavigationOffset());
         editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
     }
@@ -125,6 +131,8 @@ public class QuickJumpAction extends AnAction{
                 @Override public void keyPressed(KeyEvent e){
                     char keyChar = e.getKeyChar();
                     key = Character.getNumericValue(keyChar);
+
+
 
 
                     if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isShiftDown()){
@@ -163,6 +171,8 @@ public class QuickJumpAction extends AnAction{
 
                 }
             });
+
+
 
 
             getDocument().addDocumentListener(new DocumentListener(){
@@ -326,7 +336,6 @@ public class QuickJumpAction extends AnAction{
         }
 
         private void hideBalloons(){
-            System.out.println("hide balloons");
             for (Balloon balloon1 : balloons){
                 balloon1.dispose();
             }
