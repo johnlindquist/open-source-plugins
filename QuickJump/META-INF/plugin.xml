@@ -1,26 +1,33 @@
 <idea-plugin url="https://github.com/johnlindquist/open-source-plugins"
              version="2">
     <name>QuickJump</name>
+    <id>QuickJump</id>
 
     <description>QuickJump allows you to quickly navigate the cursor to any position visible in the editor. Simply hit "ctrl+;" then start typing. Once options appear, hit Enter or the number key corresponding to the position where you want the cursor to move.
     </description>
     <change-notes><![CDATA[
         <html>
         <dl>
+            <dt>1.1</dt>
+            <dd>You can now expand your search with ctrl+Enter. Adjusting popup sizes.</dd>
             <dt>1.0</dt>
             <dd>Initial Release</dd>
         </dl>
         </html>
         ]]>
     </change-notes>
-    <version>1.0</version>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <version>1.1</version>
     <category>Navigation</category>
     <vendor url="http://johnlindquist.com"
             email="johnlindquist@gmail.com">johnlindquist
     </vendor>
 
 
-    <idea-version since-build="8000"/>
+    <idea-version since-build="99.18"
+                  until-build="108.9999"/>
 
     <project-components>
         <!-- Add your project components here -->
@@ -30,10 +37,17 @@
         <!-- Add your actions here -->
         <action id="QuickJumpAction"
                 class="com.johnlindquist.quickjump.QuickJumpAction"
-                text="QuickJumpAction"
-                description="A faster way to find">
+                text="Quick Jump"
+                description="Search and navigate to result">
             <keyboard-shortcut keymap="$default"
                                first-keystroke="ctrl SEMICOLON"/>
+        </action>
+        <action id="QuickJumpSelectAction"
+                class="com.johnlindquist.quickjump.QuickJumpSelectAction"
+                text="Quick Jump Select"
+                description="Search and select result">
+            <keyboard-shortcut keymap="$default"
+                               first-keystroke="ctrl shift SEMICOLON"/>
         </action>
     </actions>
 

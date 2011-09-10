@@ -6,9 +6,14 @@ import com.intellij.find.FindResult;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
-import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.editor.VisualPosition;
+import com.intellij.openapi.editor.impl.DocumentImpl;
+import com.intellij.openapi.editor.impl.EditorImpl;
+import com.intellij.openapi.editor.impl.FoldingModelImpl;
+import com.intellij.openapi.editor.impl.ScrollingModelImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.*;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -20,15 +25,16 @@ import com.intellij.usages.UsageInfo2UsageAdapter;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
+import java.util.*;
+import java.util.List;
 
 /**
  * User: John Lindquist
@@ -38,30 +44,36 @@ import java.util.HashMap;
 public class QuickJumpAction extends AnAction{
 
     protected Project project;
-    protected Editor editor;
-    protected FindModel model;
+    protected EditorImpl editor;
+    protected FindModel findModel;
     protected FindManager findManager;
     protected JBPopup popup;
     protected VirtualFile virtualFile;
+    protected DocumentImpl document;
+    protected FoldingModelImpl foldingModel;
+    protected SearchBox searchBox;
 
     public void actionPerformed(AnActionEvent e){
 
         project = e.getData(PlatformDataKeys.PROJECT);
-        editor = e.getData(PlatformDataKeys.EDITOR);
+        editor = (EditorImpl) e.getData(PlatformDataKeys.EDITOR);
         virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
+        document = (DocumentImpl) editor.getDocument();
+        foldingModel = (FoldingModelImpl) editor.getFoldingModel();
+
 
         findManager = FindManager.getInstance(project);
-        model = createFindModel(findManager);
+        findModel = createFindModel(findManager);
 
 
-        SearchBox searchBox = new SearchBox();
+        searchBox = new SearchBox();
         searchBox.setSize(searchBox.getPreferredSize());
 
-        ComponentPopupBuilder popupBuilder = JBPopupFactory.getInstance().createComponentPopupBuilder(searchBox, null);
+        ComponentPopupBuilder popupBuilder = JBPopupFactory.getInstance().createComponentPopupBuilder(searchBox, searchBox);
         popup = popupBuilder.createPopup();
 
         popup.show(guessBestLocation(editor));
-        searchBox.requestFocus();
+        searchBox.grabFocus();
     }
 
     protected FindModel createFindModel(FindManager findManager){
@@ -76,7 +88,9 @@ public class QuickJumpAction extends AnAction{
 
     public RelativePoint guessBestLocation(Editor editor){
         VisualPosition logicalPosition = editor.getCaretModel().getVisualPosition();
-        return getPointFromVisualPosition(editor, logicalPosition);
+        RelativePoint pointFromVisualPosition = getPointFromVisualPosition(editor, logicalPosition);
+        pointFromVisualPosition.getOriginalPoint().translate(0, -editor.getLineHeight());
+        return pointFromVisualPosition;
     }
 
     protected RelativePoint getPointFromVisualPosition(Editor editor, VisualPosition logicalPosition){
@@ -90,38 +104,63 @@ public class QuickJumpAction extends AnAction{
         return new RelativePoint(editor.getContentComponent(), p);
     }
 
+    protected void moveCaret(UsageInfo usageInfo){
+        editor.getCaretModel().moveToOffset(usageInfo.getNavigationOffset());
+        editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+    }
 
-    private class SearchBox extends JTextField{
+    protected class SearchBox extends JTextField{
+        private static final int ALLOWED_RESULTS = 9;
         private ArrayList<Balloon> balloons = new ArrayList<Balloon>();
         protected HashMap<Integer, UsageInfo> hashMap = new HashMap<Integer, UsageInfo>();
         protected int key;
+        protected Timer timer;
+        protected List<UsageInfo> results;
+        protected int startResult;
+        protected int endResult;
 
 
         private SearchBox(){
             addKeyListener(new KeyAdapter(){
                 @Override public void keyPressed(KeyEvent e){
-                    System.out.println("released");
                     char keyChar = e.getKeyChar();
                     key = Character.getNumericValue(keyChar);
 
-                    System.out.println(KeyEvent.VK_ENTER);
-                    System.out.println(e.getKeyCode());
-                    if (e.getKeyCode() == KeyEvent.VK_ENTER){
-                        key = 0;
 
+                    if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isShiftDown()){
+                        startResult -= ALLOWED_RESULTS;
+                        endResult -= ALLOWED_RESULTS;
+                        if (startResult < 0){
+                            startResult = 0;
+                        }
+                        if (endResult < ALLOWED_RESULTS){
+                            endResult = ALLOWED_RESULTS;
+                        }
+                        showBalloons(results, startResult, endResult);
+                    }
+                    else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown()){
+                        startResult += ALLOWED_RESULTS;
+                        endResult += ALLOWED_RESULTS;
+                        showBalloons(results, startResult, endResult);
+                    }
+                    else if (e.getKeyCode() == KeyEvent.VK_ENTER){
+                        key = 0;
                     }
                 }
 
                 @Override public void keyTyped(KeyEvent e){
-                    System.out.println("typed");
                     if (key >= 0 && key < 10 && !getText().equals("")){
 
-                        UsageInfo usageInfo = hashMap.get(key);
+                        final UsageInfo usageInfo = hashMap.get(key);
                         if (usageInfo != null){
+
                             popup.cancel();
-                            editor.getCaretModel().moveToOffset(usageInfo.getNavigationOffset());
+                            moveCaret(usageInfo);
+
                         }
                     }
+
+
                 }
             });
 
@@ -142,60 +181,86 @@ public class QuickJumpAction extends AnAction{
         }
 
         private void findText(){
-            System.out.println(getText());
-            model.setStringToFind(getText());
-            java.util.List<UsageInfo> all = findAllVisible(project, editor, model);
-
-            for (Balloon balloon1 : balloons){
-                balloon1.dispose();
+            if (getText().length() < 2){
+                return;
             }
+            if (timer != null){
+                timer.stop();
+                timer = null;
 
-            final int caretOffset = editor.getCaretModel().getOffset();
-            RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
-            final Point cP = caretPoint.getOriginalPoint();
-            Collections.sort(all, new Comparator<UsageInfo>(){
-                @Override public int compare(UsageInfo o1, UsageInfo o2){
+            }
+            timer = new Timer(100, new ActionListener(){
+                @Override public void actionPerformed(ActionEvent e){
+                    ApplicationManager.getApplication().runReadAction(new Runnable(){
+                        @Override
+                        public void run(){
+                            findModel.setStringToFind(getText());
+                            results = findAllVisible();
 
-                    RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1.getNavigationOffset()));
-                    RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2.getNavigationOffset()));
-                    Point o1P = o1Point.getOriginalPoint();
-                    Point o2P = o2Point.getOriginalPoint();
 
-                    double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
-                    double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
-                    if (i1 > i2){
-                        return 1;
-                    }
-                    else if (i1 == i2){
+                            final int caretOffset = editor.getCaretModel().getOffset();
+                            RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
+                            final Point cP = caretPoint.getOriginalPoint();
+                            Collections.sort(results, new Comparator<UsageInfo>(){
+                                @Override public int compare(UsageInfo o1, UsageInfo o2){
 
-                        return 0;
-                    }
-                    else {
-                        return -1;
-                    }
+                                    RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1.getNavigationOffset()));
+                                    RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2.getNavigationOffset()));
+                                    Point o1P = o1Point.getOriginalPoint();
+                                    Point o2P = o2Point.getOriginalPoint();
+
+                                    double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
+                                    double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
+                                    if (i1 > i2){
+                                        return 1;
+                                    }
+                                    else if (i1 == i2){
+
+                                        return 0;
+                                    }
+                                    else{
+                                        return -1;
+                                    }
+                                }
+                            });
+
+
+                            startResult = 0;
+                            endResult = ALLOWED_RESULTS;
+                            showBalloons(results, startResult, endResult);
+                        }
+                    });
                 }
             });
 
+            timer.setRepeats(false);
+            timer.start();
+
+        }
+
+        private void showBalloons(List<UsageInfo> all, int start, int end){
+            hideBalloons();
+
 
             int size = all.size();
-            if (size > 9){
-                size = 9;
+            if (end > size){
+                end = size;
             }
 
 
-
-            for (int i = 0; i < size; i++){
+            final HashMap<Balloon, RelativePoint> balloonPointHashMap = new HashMap<Balloon, RelativePoint>();
+            for (int i = start; i < end; i++){
                 UsageInfo usageInfo = all.get(i);
 
                 int textOffset = usageInfo.getNavigationOffset();
                 RelativePoint point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(textOffset));
                 point.getOriginalPoint().translate(0, -editor.getLineHeight() / 2);
 
-                JPanel jPanel = new JPanel();
+                JPanel jPanel = new JPanel(new GridLayout());
                 jPanel.setBackground(Color.WHITE);
-                int mnemoicNumber = i;
+                int mnemoicNumber = i % ALLOWED_RESULTS;
                 String text = String.valueOf(mnemoicNumber);
-                if (i == 0){
+                if (i % ALLOWED_RESULTS == 0){
                     text = "Enter";
                 }
 
@@ -204,7 +269,18 @@ public class QuickJumpAction extends AnAction{
                 jLabel.setFont(jLabelFont);
                 jLabel.setBackground(Color.LIGHT_GRAY);
                 jLabel.setHorizontalAlignment(CENTER);
+                jLabel.setFocusable(false);
+                jLabel.setSize(jLabel.getWidth(), 5);
+                jPanel.setFocusable(false);
                 jPanel.add(jLabel);
+
+                if (text.equals("Enter")){
+                    jPanel.setPreferredSize(new Dimension(45, 13));
+
+                }else {
+                    jPanel.setPreferredSize(new Dimension(19, 13));
+
+                }
 
                 BalloonBuilder balloonBuilder = JBPopupFactory.getInstance().createBalloonBuilder(jPanel);
                 balloonBuilder.setFadeoutTime(0);
@@ -217,11 +293,45 @@ public class QuickJumpAction extends AnAction{
 
                 Balloon balloon = balloonBuilder.createBalloon();
 
-                balloon.show(point, Balloon.Position.above);
+                balloonPointHashMap.put(balloon, point);
 
                 balloons.add(balloon);
                 hashMap.put(mnemoicNumber, usageInfo);
             }
+
+            Collections.sort(balloons, new Comparator<Balloon>(){
+                @Override public int compare(Balloon o1, Balloon o2){
+                    RelativePoint point1 = balloonPointHashMap.get(o1);
+                    RelativePoint point2 = balloonPointHashMap.get(o2);
+
+                    if (point1.getOriginalPoint().y < point2.getOriginalPoint().y){
+                        return 1;
+                    }
+                    else if (point1.getOriginalPoint().y == point2.getOriginalPoint().y){
+                        return 0;
+                    }
+                    else{
+                        return -1;
+                    }
+                }
+            });
+
+            for (int i = 0, balloonsSize = balloons.size(); i < balloonsSize; i++){
+                Balloon balloon = balloons.get(i);
+                RelativePoint point = balloonPointHashMap.get(balloon);
+                balloon.show(point, Balloon.Position.above);
+            }
+
+
+        }
+
+        private void hideBalloons(){
+            System.out.println("hide balloons");
+            for (Balloon balloon1 : balloons){
+                balloon1.dispose();
+            }
+            balloons.clear();
+            hashMap.clear();
         }
 
         @Override public Dimension getPreferredSize(){
@@ -229,8 +339,7 @@ public class QuickJumpAction extends AnAction{
         }
 
         @Nullable
-        protected java.util.List<UsageInfo> findAllVisible(final Project project, final Editor editor, final FindModel findModel){
-            final Document document = editor.getDocument();
+        protected java.util.List<UsageInfo> findAllVisible(){
             final PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(document);
             if (psiFile == null){
                 return null;
@@ -239,15 +348,35 @@ public class QuickJumpAction extends AnAction{
             CharSequence text = document.getCharsSequence();
             int textLength = document.getTextLength();
             final java.util.List<UsageInfo> usages = new ArrayList<UsageInfo>();
-            FindManager findManager = FindManager.getInstance(project);
-            findModel.setForward(true); // when find all there is no diff in direction
-
-            int offset = 0;
-
-            Rectangle visibleArea = editor.getScrollingModel().getVisibleArea();
 
 
-            while (offset < textLength){
+//            int offset = editor.getCaretModel().getOffset() - 500;
+//            int endOffset = offset + 500;
+
+            JViewport viewport = editor.getScrollPane().getViewport();
+            double linesAbove = viewport.getViewPosition().getY() / editor.getLineHeight();
+//            int endOffset = offset + 300;
+
+            ScrollingModelImpl scrollingModel = (ScrollingModelImpl) editor.getScrollingModel();
+//            int verticalScrollOffset = scrollingModel.getVerticalScrollOffset();
+
+//            int visibleLineCount = getVisualLineCount(foldingModel);
+            Rectangle visibleArea = scrollingModel.getVisibleArea();
+
+            double visibleLines = visibleArea.getHeight() / editor.getLineHeight() + 4;
+
+            int offset = document.getLineStartOffset((int) linesAbove);
+            int endLine = (int) (linesAbove + visibleLines);
+            int lineCount = document.getLineCount() - 1;
+            if (endLine > lineCount){
+                endLine = lineCount;
+            }
+            int endOffset = document.getLineEndOffset(endLine);
+
+//            int endOffset = editor.offsetToVisualLine(verticalScrollOffset + visibleLineCount);
+
+
+            while (offset < endOffset){
                 FindResult result = findManager.findString(text, offset, findModel, virtualFile);
                 if (!result.isStringFound()){
                     break;
@@ -272,6 +401,10 @@ public class QuickJumpAction extends AnAction{
                 }
             }
             return usages;
+        }
+
+        protected int getVisualLineCount(FoldingModelImpl foldingModel){
+            return document.getLineCount() - foldingModel.getFoldedLinesCountBefore(document.getTextLength() + 1) + editor.getSoftWrapModel().getSoftWrapsIntroducedLinesNumber();
         }
     }
 }
