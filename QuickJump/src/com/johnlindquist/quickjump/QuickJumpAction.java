@@ -5,6 +5,7 @@ import com.intellij.find.FindModel;
 import com.intellij.find.FindResult;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
@@ -19,9 +20,12 @@ import com.intellij.openapi.ui.popup.*;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.codeStyle.NameUtil;
+import com.intellij.psi.impl.cache.impl.id.IdTableBuilding;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.usages.UsageInfo2UsageAdapter;
+import com.intellij.util.ArrayUtil;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -52,6 +56,7 @@ public class QuickJumpAction extends AnAction{
     protected DocumentImpl document;
     protected FoldingModelImpl foldingModel;
     protected SearchBox searchBox;
+    protected DataContext dataContext;
 
     public void actionPerformed(AnActionEvent e){
 
@@ -60,6 +65,7 @@ public class QuickJumpAction extends AnAction{
         virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
         document = (DocumentImpl) editor.getDocument();
         foldingModel = (FoldingModelImpl) editor.getFoldingModel();
+        dataContext = e.getDataContext();
 
 
         findManager = FindManager.getInstance(project);
@@ -87,6 +93,9 @@ public class QuickJumpAction extends AnAction{
         clone.setFromCursor(true);
         clone.setForward(true);
         clone.setRegularExpressions(false);
+        clone.setWholeWordsOnly(false);
+        clone.setCaseSensitive(false);
+        clone.setSearchHighlighters(true);
 
         return clone;
     }
@@ -109,19 +118,19 @@ public class QuickJumpAction extends AnAction{
         return new RelativePoint(editor.getContentComponent(), p);
     }
 
-    protected void moveCaret(UsageInfo usageInfo){
+    protected void moveCaret(Integer offset){
         editor.getSelectionModel().removeSelection();
-        editor.getCaretModel().moveToOffset(usageInfo.getNavigationOffset());
+        editor.getCaretModel().moveToOffset(offset);
         editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
     }
 
     protected class SearchBox extends JTextField{
         private static final int ALLOWED_RESULTS = 9;
         private ArrayList<Balloon> balloons = new ArrayList<Balloon>();
-        protected HashMap<Integer, UsageInfo> hashMap = new HashMap<Integer, UsageInfo>();
+        protected HashMap<Integer, Integer> hashMap = new HashMap<Integer, Integer>();
         protected int key;
         protected Timer timer;
-        protected List<UsageInfo> results;
+        protected List<Integer> results;
         protected int startResult;
         protected int endResult;
 
@@ -131,9 +140,6 @@ public class QuickJumpAction extends AnAction{
                 @Override public void keyPressed(KeyEvent e){
                     char keyChar = e.getKeyChar();
                     key = Character.getNumericValue(keyChar);
-
-
-
 
                     if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isShiftDown()){
                         startResult -= ALLOWED_RESULTS;
@@ -159,11 +165,11 @@ public class QuickJumpAction extends AnAction{
                 @Override public void keyTyped(KeyEvent e){
                     if (key >= 0 && key < 10 && !getText().equals("")){
 
-                        final UsageInfo usageInfo = hashMap.get(key);
-                        if (usageInfo != null){
+                        final Integer offset = hashMap.get(key);
+                        if (offset != null){
 
                             popup.cancel();
-                            moveCaret(usageInfo);
+                            moveCaret(offset);
 
                         }
                     }
@@ -207,15 +213,26 @@ public class QuickJumpAction extends AnAction{
                             findModel.setStringToFind(getText());
                             results = findAllVisible();
 
+                            String[] strings = calcWords(getText(), editor);
+
+                            for (String string : strings){
+                                findModel.setStringToFind(string);
+                                results.addAll(findAllVisible());
+                            }
+
+                            HashSet hashSet = new HashSet();
+                            hashSet.addAll(results);
+                            results.clear();
+                            results.addAll(hashSet);
 
                             final int caretOffset = editor.getCaretModel().getOffset();
                             RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
                             final Point cP = caretPoint.getOriginalPoint();
-                            Collections.sort(results, new Comparator<UsageInfo>(){
-                                @Override public int compare(UsageInfo o1, UsageInfo o2){
+                            Collections.sort(results, new Comparator<Integer>(){
+                                @Override public int compare(Integer o1, Integer o2){
 
-                                    RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1.getNavigationOffset()));
-                                    RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2.getNavigationOffset()));
+                                    RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1));
+                                    RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2));
                                     Point o1P = o1Point.getOriginalPoint();
                                     Point o2P = o2Point.getOriginalPoint();
 
@@ -237,6 +254,7 @@ public class QuickJumpAction extends AnAction{
 
                             startResult = 0;
                             endResult = ALLOWED_RESULTS;
+
                             showBalloons(results, startResult, endResult);
                         }
                     });
@@ -248,11 +266,11 @@ public class QuickJumpAction extends AnAction{
 
         }
 
-        private void showBalloons(List<UsageInfo> all, int start, int end){
+        private void showBalloons(List<Integer> results, int start, int end){
             hideBalloons();
 
 
-            int size = all.size();
+            int size = results.size();
             if (end > size){
                 end = size;
             }
@@ -260,9 +278,8 @@ public class QuickJumpAction extends AnAction{
 
             final HashMap<Balloon, RelativePoint> balloonPointHashMap = new HashMap<Balloon, RelativePoint>();
             for (int i = start; i < end; i++){
-                UsageInfo usageInfo = all.get(i);
 
-                int textOffset = usageInfo.getNavigationOffset();
+                int textOffset = results.get(i);
                 RelativePoint point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(textOffset));
                 point.getOriginalPoint().translate(0, -editor.getLineHeight() / 2);
 
@@ -306,7 +323,7 @@ public class QuickJumpAction extends AnAction{
                 balloonPointHashMap.put(balloon, point);
 
                 balloons.add(balloon);
-                hashMap.put(mnemoicNumber, usageInfo);
+                hashMap.put(mnemoicNumber, textOffset);
             }
 
             Collections.sort(balloons, new Comparator<Balloon>(){
@@ -348,7 +365,7 @@ public class QuickJumpAction extends AnAction{
         }
 
         @Nullable
-        protected java.util.List<UsageInfo> findAllVisible(){
+        protected java.util.List<Integer> findAllVisible(){
             final PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(document);
             if (psiFile == null){
                 return null;
@@ -356,7 +373,7 @@ public class QuickJumpAction extends AnAction{
 
             CharSequence text = document.getCharsSequence();
             int textLength = document.getTextLength();
-            final java.util.List<UsageInfo> usages = new ArrayList<UsageInfo>();
+            final List<Integer> usages = new ArrayList<Integer>();
 
 
 //            int offset = editor.getCaretModel().getOffset() - 500;
@@ -396,7 +413,7 @@ public class QuickJumpAction extends AnAction{
                 Point point = editor.logicalPositionToXY(editor.offsetToLogicalPosition(usageAdapter.getUsageInfo().getNavigationOffset()));
                 if (visibleArea.contains(point)){
                     UsageInfo usageInfo = usageAdapter.getUsageInfo();
-                    usages.add(usageInfo);
+                    usages.add(usageInfo.getNavigationOffset());
                 }
 
 
@@ -416,4 +433,26 @@ public class QuickJumpAction extends AnAction{
             return document.getLineCount() - foldingModel.getFoldedLinesCountBefore(document.getTextLength() + 1) + editor.getSoftWrapModel().getSoftWrapsIntroducedLinesNumber();
         }
     }
+
+    protected String[] calcWords(final String prefix, Editor editor){
+        final NameUtil.Matcher matcher = NameUtil.buildMatcher(prefix, 0, true, true);
+        final Set<String> words = new HashSet<String>();
+        CharSequence chars = editor.getDocument().getCharsSequence();
+
+        IdTableBuilding.scanWords(new IdTableBuilding.ScanWordProcessor(){
+            public void run(final CharSequence chars, final int start, final int end){
+                final String word = chars.subSequence(start, end).toString();
+                if (matcher.matches(word)){
+                    words.add(word);
+                }
+            }
+        }, chars, 0, chars.length());
+
+
+        ArrayList<String> sortedWords = new ArrayList<String>(words);
+        Collections.sort(sortedWords);
+
+        return ArrayUtil.toStringArray(sortedWords);
+    }
+
 }
