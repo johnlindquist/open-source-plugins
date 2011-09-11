@@ -125,7 +125,7 @@ public class QuickJumpAction extends AnAction{
     }
 
     protected class SearchBox extends JTextField{
-        private static final int ALLOWED_RESULTS = 9;
+        private static final int ALLOWED_RESULTS = 10;
         private ArrayList<Balloon> balloons = new ArrayList<Balloon>();
         protected HashMap<Integer, Integer> hashMap = new HashMap<Integer, Integer>();
         protected int key;
@@ -178,9 +178,6 @@ public class QuickJumpAction extends AnAction{
                 }
             });
 
-
-
-
             getDocument().addDocumentListener(new DocumentListener(){
                 @Override public void insertUpdate(DocumentEvent e){
                     findText();
@@ -197,29 +194,39 @@ public class QuickJumpAction extends AnAction{
         }
 
         private void findText(){
-            if (getText().length() < 2){
+            final int length = getText().length();
+            if (length < 2){
                 return;
             }
             if (timer != null){
                 timer.stop();
                 timer = null;
-
             }
-            timer = new Timer(100, new ActionListener(){
+            int delay = 100;
+            if (length == 2){
+                delay = 250;
+            }
+
+            timer = new Timer(delay, new ActionListener(){
                 @Override public void actionPerformed(ActionEvent e){
+                    if (getText().length() < 2){
+                        return;
+                    }
                     ApplicationManager.getApplication().runReadAction(new Runnable(){
                         @Override
                         public void run(){
+                            System.out.println(getText());
                             findModel.setStringToFind(getText());
                             results = findAllVisible();
 
+                            //camelCase logic
                             String[] strings = calcWords(getText(), editor);
-
                             for (String string : strings){
                                 findModel.setStringToFind(string);
                                 results.addAll(findAllVisible());
                             }
 
+                            //clear duplicates (optimize?)
                             HashSet hashSet = new HashSet();
                             hashSet.addAll(results);
                             results.clear();
@@ -372,21 +379,12 @@ public class QuickJumpAction extends AnAction{
             }
 
             CharSequence text = document.getCharsSequence();
-            int textLength = document.getTextLength();
             final List<Integer> usages = new ArrayList<Integer>();
-
-
-//            int offset = editor.getCaretModel().getOffset() - 500;
-//            int endOffset = offset + 500;
 
             JViewport viewport = editor.getScrollPane().getViewport();
             double linesAbove = viewport.getViewPosition().getY() / editor.getLineHeight();
-//            int endOffset = offset + 300;
 
             ScrollingModelImpl scrollingModel = (ScrollingModelImpl) editor.getScrollingModel();
-//            int verticalScrollOffset = scrollingModel.getVerticalScrollOffset();
-
-//            int visibleLineCount = getVisualLineCount(foldingModel);
             Rectangle visibleArea = scrollingModel.getVisibleArea();
 
             double visibleLines = visibleArea.getHeight() / editor.getLineHeight() + 4;
@@ -398,9 +396,6 @@ public class QuickJumpAction extends AnAction{
                 endLine = lineCount;
             }
             int endOffset = document.getLineEndOffset(endLine);
-
-//            int endOffset = editor.offsetToVisualLine(verticalScrollOffset + visibleLineCount);
-
 
             while (offset < endOffset){
                 FindResult result = findManager.findString(text, offset, findModel, virtualFile);
@@ -422,7 +417,6 @@ public class QuickJumpAction extends AnAction{
 
 
                 if (prevOffset == offset){
-                    // for regular expr the size of the match could be zero -> could be infinite loop in finding usages!
                     ++offset;
                 }
             }
