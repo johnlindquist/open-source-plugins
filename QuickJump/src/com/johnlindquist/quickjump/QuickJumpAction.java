@@ -9,7 +9,6 @@ import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.editor.VisualPosition;
 import com.intellij.openapi.editor.impl.DocumentImpl;
 import com.intellij.openapi.editor.impl.EditorImpl;
@@ -57,8 +56,10 @@ public class QuickJumpAction extends AnAction{
     protected FoldingModelImpl foldingModel;
     protected SearchBox searchBox;
     protected DataContext dataContext;
+    protected AnActionEvent inputEvent;
 
     public void actionPerformed(AnActionEvent e){
+        inputEvent = e;
 
         project = e.getData(PlatformDataKeys.PROJECT);
         editor = (EditorImpl) e.getData(PlatformDataKeys.EDITOR);
@@ -73,6 +74,7 @@ public class QuickJumpAction extends AnAction{
 
 
         searchBox = new SearchBox();
+
         searchBox.setSize(searchBox.getPreferredSize());
 
         ComponentPopupBuilder popupBuilder = JBPopupFactory.getInstance().createComponentPopupBuilder(searchBox, searchBox);
@@ -84,7 +86,7 @@ public class QuickJumpAction extends AnAction{
                 searchBox.hideBalloons();
             }
         });
-        searchBox.grabFocus();
+        searchBox.requestFocus();
     }
 
     protected FindModel createFindModel(FindManager findManager){
@@ -121,7 +123,7 @@ public class QuickJumpAction extends AnAction{
     protected void moveCaret(Integer offset){
         editor.getSelectionModel().removeSelection();
         editor.getCaretModel().moveToOffset(offset);
-        editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+//        editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
     }
 
     protected class SearchBox extends JTextField{
@@ -194,6 +196,7 @@ public class QuickJumpAction extends AnAction{
         }
 
         private void findText(){
+
             final int length = getText().length();
             if (length < 2){
                 return;
@@ -207,16 +210,21 @@ public class QuickJumpAction extends AnAction{
                 delay = 250;
             }
 
+
             timer = new Timer(delay, new ActionListener(){
                 @Override public void actionPerformed(ActionEvent e){
+
                     if (getText().length() < 2){
                         return;
                     }
+
+
+                    System.out.println(getText());
+                    findModel.setStringToFind(getText());
+
                     ApplicationManager.getApplication().runReadAction(new Runnable(){
                         @Override
                         public void run(){
-                            System.out.println(getText());
-                            findModel.setStringToFind(getText());
                             results = findAllVisible();
 
                             //camelCase logic
@@ -225,46 +233,47 @@ public class QuickJumpAction extends AnAction{
                                 findModel.setStringToFind(string);
                                 results.addAll(findAllVisible());
                             }
+                        }
 
-                            //clear duplicates (optimize?)
-                            HashSet hashSet = new HashSet();
-                            hashSet.addAll(results);
-                            results.clear();
-                            results.addAll(hashSet);
+                    });
+                    //clear duplicates (optimize?)
+                    HashSet hashSet = new HashSet();
+                    hashSet.addAll(results);
+                    results.clear();
+                    results.addAll(hashSet);
 
-                            final int caretOffset = editor.getCaretModel().getOffset();
-                            RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
-                            final Point cP = caretPoint.getOriginalPoint();
-                            Collections.sort(results, new Comparator<Integer>(){
-                                @Override public int compare(Integer o1, Integer o2){
+                    final int caretOffset = editor.getCaretModel().getOffset();
+                    RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
+                    final Point cP = caretPoint.getOriginalPoint();
+                    Collections.sort(results, new Comparator<Integer>(){
+                        @Override public int compare(Integer o1, Integer o2){
 
-                                    RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1));
-                                    RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2));
-                                    Point o1P = o1Point.getOriginalPoint();
-                                    Point o2P = o2Point.getOriginalPoint();
+                            RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1));
+                            RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2));
+                            Point o1P = o1Point.getOriginalPoint();
+                            Point o2P = o2Point.getOriginalPoint();
 
-                                    double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
-                                    double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
-                                    if (i1 > i2){
-                                        return 1;
-                                    }
-                                    else if (i1 == i2){
+                            double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
+                            double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
+                            if (i1 > i2){
+                                return 1;
+                            }
+                            else if (i1 == i2){
 
-                                        return 0;
-                                    }
-                                    else{
-                                        return -1;
-                                    }
-                                }
-                            });
-
-
-                            startResult = 0;
-                            endResult = ALLOWED_RESULTS;
-
-                            showBalloons(results, startResult, endResult);
+                                return 0;
+                            }
+                            else{
+                                return -1;
+                            }
                         }
                     });
+
+
+                    startResult = 0;
+                    endResult = ALLOWED_RESULTS;
+
+                    showBalloons(results, startResult, endResult);
+
                 }
             });
 
@@ -311,7 +320,8 @@ public class QuickJumpAction extends AnAction{
                 if (text.equals("Enter")){
                     jPanel.setPreferredSize(new Dimension(45, 13));
 
-                }else {
+                }
+                else{
                     jPanel.setPreferredSize(new Dimension(19, 13));
 
                 }
@@ -379,7 +389,7 @@ public class QuickJumpAction extends AnAction{
             }
 
             CharSequence text = document.getCharsSequence();
-            final List<Integer> usages = new ArrayList<Integer>();
+            final List<Integer> offsets = new ArrayList<Integer>();
 
             JViewport viewport = editor.getScrollPane().getViewport();
             double linesAbove = viewport.getViewPosition().getY() / editor.getLineHeight();
@@ -398,6 +408,8 @@ public class QuickJumpAction extends AnAction{
             int endOffset = document.getLineEndOffset(endLine);
 
             while (offset < endOffset){
+
+
                 FindResult result = findManager.findString(text, offset, findModel, virtualFile);
                 if (!result.isStringFound()){
                     break;
@@ -408,7 +420,7 @@ public class QuickJumpAction extends AnAction{
                 Point point = editor.logicalPositionToXY(editor.offsetToLogicalPosition(usageAdapter.getUsageInfo().getNavigationOffset()));
                 if (visibleArea.contains(point)){
                     UsageInfo usageInfo = usageAdapter.getUsageInfo();
-                    usages.add(usageInfo.getNavigationOffset());
+                    offsets.add(usageInfo.getNavigationOffset());
                 }
 
 
@@ -420,7 +432,10 @@ public class QuickJumpAction extends AnAction{
                     ++offset;
                 }
             }
-            return usages;
+
+
+
+            return offsets;
         }
 
         protected int getVisualLineCount(FoldingModelImpl foldingModel){
@@ -428,8 +443,9 @@ public class QuickJumpAction extends AnAction{
         }
     }
 
+
     protected String[] calcWords(final String prefix, Editor editor){
-        final NameUtil.Matcher matcher = NameUtil.buildMatcher(prefix, 0, true, true);
+        final NameUtil.MinusculeMatcher matcher = (NameUtil.MinusculeMatcher) NameUtil.buildMatcher(prefix, 0, true, true);
         final Set<String> words = new HashSet<String>();
         CharSequence chars = editor.getDocument().getCharsSequence();
 
