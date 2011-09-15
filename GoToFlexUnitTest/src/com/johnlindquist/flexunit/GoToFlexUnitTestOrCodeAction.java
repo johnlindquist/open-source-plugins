@@ -34,6 +34,7 @@ import java.io.IOException;
 public class GoToFlexUnitTestOrCodeAction extends AnAction{
 
     protected PsiFile psiFile;
+    protected Project project;
 
     public void actionPerformed(AnActionEvent e){
         psiFile = e.getData(DataKeys.PSI_FILE);
@@ -49,7 +50,7 @@ public class GoToFlexUnitTestOrCodeAction extends AnAction{
 
     private void goToFlexUnitTestOrCodeAction(AnActionEvent e){
         final Module module = e.getData(DataKeys.MODULE);
-        final Project project = e.getData(PlatformDataKeys.PROJECT);
+        project = e.getData(PlatformDataKeys.PROJECT);
         Editor editor = e.getData(PlatformDataKeys.EDITOR);
 
         JSClass jsClass = JSPsiImplUtils.findClass((JSFile) psiFile);
@@ -61,10 +62,7 @@ public class GoToFlexUnitTestOrCodeAction extends AnAction{
                 if (testFolder != null){
                     try{
 
-                        VirtualFile childDirectory = testFolder.findChild(packageName);
-                        if (childDirectory == null){
-                            childDirectory = testFolder.createChildDirectory(project, packageName);
-                        }
+                        VirtualFile childDirectory = createDirectories(testFolder, packageName);
 
                         String testFileName = psiFile.getVirtualFile().getNameWithoutExtension() + "Test";
                         PsiDirectory psiDirectory = PsiManagerImpl.getInstance(project).findDirectory(childDirectory);
@@ -87,6 +85,22 @@ public class GoToFlexUnitTestOrCodeAction extends AnAction{
 
         ApplicationManager.getApplication().runWriteAction(runnable);
 
+    }
+
+    private VirtualFile createDirectories(VirtualFile parentDirectory, String packageName) throws IOException{
+
+        String[] directories = packageName.split("\\.");
+
+        VirtualFile childDirectory = parentDirectory;
+        for (String directory : directories){
+            childDirectory = parentDirectory.findChild(directory);
+            if (childDirectory == null){
+                childDirectory = parentDirectory.createChildDirectory(project, directory);
+            }
+            parentDirectory = childDirectory;
+        }
+
+        return childDirectory;
     }
 
     protected VirtualFile getTestFolderFromCurrentModule(Module module){
