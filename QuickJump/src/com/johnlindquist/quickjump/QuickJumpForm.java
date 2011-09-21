@@ -11,7 +11,7 @@ import java.awt.*;
  * Date: 9/11/11
  * Time: 12:10 AM
  */
-public class QuickJumpForm{
+public class QuickJumpForm {
     private JTextField textField1;
     private JLabel label1;
     private JLabel label2;
@@ -31,7 +31,7 @@ public class QuickJumpForm{
      *
      * @noinspection ALL
      */
-    private void $$$setupUI$$$(){
+    private void $$$setupUI$$$() {
         panel1 = new JPanel();
         panel1.setLayout(new GridLayoutManager(3, 1, new Insets(2, 5, 2, 5), -1, -1));
         label1 = new JLabel();
@@ -47,7 +47,7 @@ public class QuickJumpForm{
     /**
      * @noinspection ALL
      */
-    public JComponent $$$getRootComponent$$$(){
+    public JComponent $$$getRootComponent$$$() {
         return panel1;
     }
 }

@@ -161,6 +161,9 @@ public class QuickJumpAction extends AnAction{
                     }
                     else if (e.getKeyCode() == KeyEvent.VK_ENTER){
                         key = 0;
+                        if (getText().length() == 1){
+                            findText(true, 0);
+                        }
                     }
                 }
 
@@ -181,12 +184,12 @@ public class QuickJumpAction extends AnAction{
             });
 
             getDocument().addDocumentListener(new DocumentListener(){
-                @Override public void insertUpdate(DocumentEvent e){
-                    findText();
+                @Override public void insertUpdate(DocumentEvent e) {
+                    startFindText();
                 }
 
                 @Override public void removeUpdate(DocumentEvent e){
-                    findText();
+                    startFindText();
                 }
 
                 @Override public void changedUpdate(DocumentEvent e){
@@ -195,29 +198,36 @@ public class QuickJumpAction extends AnAction{
 
         }
 
-        private void findText(){
+        private void startFindText() {
+            boolean allow = true;
+            int delay = 100;
 
-            final int length = getText().length();
-            if (length < 2){
+            String text = getText();
+            int length = text.length();
+
+            if (length == 1 && text.matches("[^a-zA-z0-9]")) {
+                findText(allow, delay);
                 return;
             }
-            if (timer != null){
-                timer.stop();
-                timer = null;
+
+            if (length < 2) {
+                cancelFindText();
+                return;
             }
-            int delay = 100;
-            if (length == 2){
+
+            if (length == 2) {
                 delay = 250;
             }
 
+            findText(allow, delay);
+        }
+
+        private void findText(final boolean allow, int delay){
+
+            cancelFindText();
 
             timer = new Timer(delay, new ActionListener(){
                 @Override public void actionPerformed(ActionEvent e){
-
-                    if (getText().length() < 2){
-                        return;
-                    }
-
 
                     System.out.println(getText());
                     findModel.setStringToFind(getText());
@@ -259,7 +269,6 @@ public class QuickJumpAction extends AnAction{
                                 return 1;
                             }
                             else if (i1 == i2){
-
                                 return 0;
                             }
                             else{
@@ -280,6 +289,13 @@ public class QuickJumpAction extends AnAction{
             timer.setRepeats(false);
             timer.start();
 
+        }
+
+        private void cancelFindText() {
+            if (timer != null){
+                timer.stop();
+                timer = null;
+            }
         }
 
         private void showBalloons(List<Integer> results, int start, int end){
@@ -437,10 +453,6 @@ public class QuickJumpAction extends AnAction{
 
             return offsets;
         }
-
-        protected int getVisualLineCount(FoldingModelImpl foldingModel){
-            return document.getLineCount() - foldingModel.getFoldedLinesCountBefore(document.getTextLength() + 1) + editor.getSoftWrapModel().getSoftWrapsIntroducedLinesNumber();
-        }
     }
 
 
@@ -457,7 +469,6 @@ public class QuickJumpAction extends AnAction{
                 }
             }
         }, chars, 0, chars.length());
-
 
         ArrayList<String> sortedWords = new ArrayList<String>(words);
         Collections.sort(sortedWords);

@@ -33,7 +33,7 @@
 
 
     <idea-version since-build="99.18"
-                  until-build="107.9999"/>
+                  until-build="108.9999"/>
 
     <project-components>
         <!-- Add your project components here -->
@@ -61,6 +61,13 @@
                 description="Search and complete at result">
             <keyboard-shortcut keymap="$default"
                                first-keystroke="ctrl alt SEMICOLON"/>
+        </action>
+        <action id="com.johnlindquist.quickjump.QuickJumpSelectFromCaretAction"
+                class="com.johnlindquist.quickjump.QuickJumpSelectFromCaretAction"
+                text="Quick Jump Select From Caret"
+                description="Search and select from caret">
+            <keyboard-shortcut keymap="$default"
+                               first-keystroke="ctrl shift alt SEMICOLON"/>
         </action>
     </actions>
 
