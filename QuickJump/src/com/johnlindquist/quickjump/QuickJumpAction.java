@@ -22,6 +22,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.codeStyle.NameUtil;
 import com.intellij.psi.impl.cache.impl.id.IdTableBuilding;
 import com.intellij.ui.awt.RelativePoint;
+import com.intellij.ui.popup.AbstractPopup;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.usages.UsageInfo2UsageAdapter;
 import com.intellij.util.ArrayUtil;
@@ -29,8 +30,10 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.Timer;
+import javax.swing.border.AbstractBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.plaf.metal.MetalBorders;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -44,13 +47,13 @@ import java.util.List;
  * Date: 9/8/11
  * Time: 12:10 AM
  */
-public class QuickJumpAction extends AnAction{
+public class QuickJumpAction extends AnAction {
 
     protected Project project;
     protected EditorImpl editor;
     protected FindModel findModel;
     protected FindManager findManager;
-    protected JBPopup popup;
+    protected AbstractPopup popup;
     protected VirtualFile virtualFile;
     protected DocumentImpl document;
     protected FoldingModelImpl foldingModel;
@@ -58,7 +61,7 @@ public class QuickJumpAction extends AnAction{
     protected DataContext dataContext;
     protected AnActionEvent inputEvent;
 
-    public void actionPerformed(AnActionEvent e){
+    public void actionPerformed(AnActionEvent e) {
         inputEvent = e;
 
         project = e.getData(PlatformDataKeys.PROJECT);
@@ -78,18 +81,24 @@ public class QuickJumpAction extends AnAction{
         searchBox.setSize(searchBox.getPreferredSize());
 
         ComponentPopupBuilder popupBuilder = JBPopupFactory.getInstance().createComponentPopupBuilder(searchBox, searchBox);
-        popup = popupBuilder.createPopup();
+        popup = (AbstractPopup) popupBuilder.createPopup();
+
+        JComponent content = popup.getContent();
+
+        content.setBorder(new AbstractBorder() {
+        });
 
         popup.show(guessBestLocation(editor));
-        popup.addListener(new JBPopupAdapter(){
-            @Override public void onClosed(LightweightWindowEvent event){
+        popup.addListener(new JBPopupAdapter() {
+            @Override
+            public void onClosed(LightweightWindowEvent event) {
                 searchBox.hideBalloons();
             }
         });
         searchBox.requestFocus();
     }
 
-    protected FindModel createFindModel(FindManager findManager){
+    protected FindModel createFindModel(FindManager findManager) {
         FindModel clone = (FindModel) findManager.getFindInFileModel().clone();
         clone.setFindAll(true);
         clone.setFromCursor(true);
@@ -98,35 +107,38 @@ public class QuickJumpAction extends AnAction{
         clone.setWholeWordsOnly(false);
         clone.setCaseSensitive(false);
         clone.setSearchHighlighters(true);
+        clone.setPreserveCase(false);
 
         return clone;
     }
 
-    public RelativePoint guessBestLocation(Editor editor){
+    public RelativePoint guessBestLocation(Editor editor) {
         VisualPosition logicalPosition = editor.getCaretModel().getVisualPosition();
         RelativePoint pointFromVisualPosition = getPointFromVisualPosition(editor, logicalPosition);
-        pointFromVisualPosition.getOriginalPoint().translate(0, -editor.getLineHeight());
+        pointFromVisualPosition.getOriginalPoint().translate(0, -searchBox.getHeight());
         return pointFromVisualPosition;
     }
 
-    protected RelativePoint getPointFromVisualPosition(Editor editor, VisualPosition logicalPosition){
+    protected RelativePoint getPointFromVisualPosition(Editor editor, VisualPosition logicalPosition) {
         Point p = editor.visualPositionToXY(new VisualPosition(logicalPosition.line + 1, logicalPosition.column));
 
         final Rectangle visibleArea = editor.getScrollingModel().getVisibleArea();
-        if (!visibleArea.contains(p)){
+        if (!visibleArea.contains(p)) {
             p = new Point((visibleArea.x + visibleArea.width) / 2, (visibleArea.y + visibleArea.height) / 2);
         }
 
         return new RelativePoint(editor.getContentComponent(), p);
     }
 
-    protected void moveCaret(Integer offset){
+    protected void moveCaret(Integer offset) {
+        searchBox.cancelFindText();
+        popup.cancel();
         editor.getSelectionModel().removeSelection();
         editor.getCaretModel().moveToOffset(offset);
 //        editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
     }
 
-    protected class SearchBox extends JTextField{
+    protected class SearchBox extends JTextField {
         private static final int ALLOWED_RESULTS = 10;
         private ArrayList<Balloon> balloons = new ArrayList<Balloon>();
         protected HashMap<Integer, Integer> hashMap = new HashMap<Integer, Integer>();
@@ -135,78 +147,103 @@ public class QuickJumpAction extends AnAction{
         protected List<Integer> results;
         protected int startResult;
         protected int endResult;
+        private boolean isJumping = false;
+        private boolean isSearchSingleChar;
 
+        private SearchBox() {
 
-        private SearchBox(){
-            addKeyListener(new KeyAdapter(){
-                @Override public void keyPressed(KeyEvent e){
+            addKeyListener(new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent e) {
                     char keyChar = e.getKeyChar();
                     key = Character.getNumericValue(keyChar);
 
-                    if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isShiftDown()){
+                    if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isShiftDown()) {
                         startResult -= ALLOWED_RESULTS;
                         endResult -= ALLOWED_RESULTS;
-                        if (startResult < 0){
+                        if (startResult < 0) {
                             startResult = 0;
                         }
-                        if (endResult < ALLOWED_RESULTS){
+                        if (endResult < ALLOWED_RESULTS) {
                             endResult = ALLOWED_RESULTS;
                         }
                         showBalloons(results, startResult, endResult);
-                    }
-                    else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown()){
+                    } else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown()) {
                         startResult += ALLOWED_RESULTS;
                         endResult += ALLOWED_RESULTS;
                         showBalloons(results, startResult, endResult);
-                    }
-                    else if (e.getKeyCode() == KeyEvent.VK_ENTER){
+                    } else if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                         key = 0;
-                        if (getText().length() == 1){
-                            findText(true, 0);
+                        if (getText().length() == 1) {
+                            startSingleCharSearch();
                         }
                     }
                 }
 
-                @Override public void keyTyped(KeyEvent e){
-                    if (key >= 0 && key < 10 && !getText().equals("")){
-
-                        final Integer offset = hashMap.get(key);
-                        if (offset != null){
-
-                            popup.cancel();
-                            moveCaret(offset);
-
-                        }
-                    }
-
-
+                @Override
+                public void keyTyped(KeyEvent e) {
+                    checkKeyAndMove();
                 }
             });
 
-            getDocument().addDocumentListener(new DocumentListener(){
-                @Override public void insertUpdate(DocumentEvent e) {
+            getDocument().addDocumentListener(new DocumentListener() {
+                @Override
+                public void insertUpdate(DocumentEvent e) {
                     startFindText();
                 }
 
-                @Override public void removeUpdate(DocumentEvent e){
+                @Override
+                public void removeUpdate(DocumentEvent e) {
                     startFindText();
                 }
 
-                @Override public void changedUpdate(DocumentEvent e){
+                @Override
+                public void changedUpdate(DocumentEvent e) {
                 }
             });
 
         }
 
+        private void checkKeyAndMove() {
+
+            if (key >= 0 && key < 10 && !getText().equals("")) {
+                final Integer offset = hashMap.get(key);
+                if (offset != null) {
+                    popup.cancel();
+                    moveCaret(offset);
+                }
+            }
+        }
+
+        private void startSingleCharSearch() {
+            isSearchSingleChar = true;
+            findText(true, 0);
+        }
+
         private void startFindText() {
+
             boolean allow = true;
             int delay = 100;
 
             String text = getText();
             int length = text.length();
 
-            if (length == 1 && text.matches("[^a-zA-z0-9]")) {
-                findText(allow, delay);
+            int width = 11 + getFontMetrics(getFont()).stringWidth(getText());
+            int height = getHeight();
+            popup.setSize(new Dimension(width, height));
+            setSize(width, height);
+//            System.out.println("the single char is: " + text);
+
+            if (length == 0) {
+                isSearchSingleChar = false;
+                return;
+            }
+
+            if (length == 1) {
+                char c = text.charAt(0);
+                if (!Character.isDigit(c) && !Character.isLetter(c)) {
+                    findText(allow, delay);
+                }
                 return;
             }
 
@@ -216,33 +253,31 @@ public class QuickJumpAction extends AnAction{
             }
 
             if (length == 2) {
+                isSearchSingleChar = false;
                 delay = 250;
             }
 
             findText(allow, delay);
         }
 
-        private void findText(final boolean allow, int delay){
+        private void findText(final boolean allow, int delay) {
 
             cancelFindText();
 
-            timer = new Timer(delay, new ActionListener(){
-                @Override public void actionPerformed(ActionEvent e){
+            timer = new Timer(delay, new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
 
                     System.out.println(getText());
                     findModel.setStringToFind(getText());
 
-                    ApplicationManager.getApplication().runReadAction(new Runnable(){
+                    ApplicationManager.getApplication().runReadAction(new Runnable() {
                         @Override
-                        public void run(){
+                        public void run() {
                             results = findAllVisible();
 
                             //camelCase logic
-                            String[] strings = calcWords(getText(), editor);
-                            for (String string : strings){
-                                findModel.setStringToFind(string);
-                                results.addAll(findAllVisible());
-                            }
+                            findCamelCase();
                         }
 
                     });
@@ -255,8 +290,9 @@ public class QuickJumpAction extends AnAction{
                     final int caretOffset = editor.getCaretModel().getOffset();
                     RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
                     final Point cP = caretPoint.getOriginalPoint();
-                    Collections.sort(results, new Comparator<Integer>(){
-                        @Override public int compare(Integer o1, Integer o2){
+                    Collections.sort(results, new Comparator<Integer>() {
+                        @Override
+                        public int compare(Integer o1, Integer o2) {
 
                             RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1));
                             RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2));
@@ -265,13 +301,11 @@ public class QuickJumpAction extends AnAction{
 
                             double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
                             double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
-                            if (i1 > i2){
+                            if (i1 > i2) {
                                 return 1;
-                            }
-                            else if (i1 == i2){
+                            } else if (i1 == i2) {
                                 return 0;
-                            }
-                            else{
+                            } else {
                                 return -1;
                             }
                         }
@@ -291,25 +325,38 @@ public class QuickJumpAction extends AnAction{
 
         }
 
+        private void findCamelCase() {
+            String text = getText();
+            if (text.length() == 1) return;
+            String[] strings = calcWords(text, editor);
+            for (String string : strings) {
+                findModel.setStringToFind(string);
+                results.addAll(findAllVisible());
+            }
+        }
+
         private void cancelFindText() {
-            if (timer != null){
+            //TODO: Fix edge case: searching for a 2 char, hitting delete, then searching for a 1 char and hitting Enter.
+//            if(results != null) results.clear();
+//            if(hashMap != null) hashMap.clear();
+            if (timer != null) {
                 timer.stop();
                 timer = null;
             }
         }
 
-        private void showBalloons(List<Integer> results, int start, int end){
+        private void showBalloons(List<Integer> results, int start, int end) {
             hideBalloons();
 
 
             int size = results.size();
-            if (end > size){
+            if (end > size) {
                 end = size;
             }
 
 
             final HashMap<Balloon, RelativePoint> balloonPointHashMap = new HashMap<Balloon, RelativePoint>();
-            for (int i = start; i < end; i++){
+            for (int i = start; i < end; i++) {
 
                 int textOffset = results.get(i);
                 RelativePoint point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(textOffset));
@@ -319,7 +366,7 @@ public class QuickJumpAction extends AnAction{
                 jPanel.setBackground(Color.WHITE);
                 int mnemoicNumber = i % ALLOWED_RESULTS;
                 String text = String.valueOf(mnemoicNumber);
-                if (i % ALLOWED_RESULTS == 0){
+                if (i % ALLOWED_RESULTS == 0) {
                     text = "Enter";
                 }
 
@@ -333,11 +380,10 @@ public class QuickJumpAction extends AnAction{
                 jPanel.setFocusable(false);
                 jPanel.add(jLabel);
 
-                if (text.equals("Enter")){
+                if (text.equals("Enter")) {
                     jPanel.setPreferredSize(new Dimension(45, 13));
 
-                }
-                else{
+                } else {
                     jPanel.setPreferredSize(new Dimension(19, 13));
 
                 }
@@ -359,24 +405,23 @@ public class QuickJumpAction extends AnAction{
                 hashMap.put(mnemoicNumber, textOffset);
             }
 
-            Collections.sort(balloons, new Comparator<Balloon>(){
-                @Override public int compare(Balloon o1, Balloon o2){
+            Collections.sort(balloons, new Comparator<Balloon>() {
+                @Override
+                public int compare(Balloon o1, Balloon o2) {
                     RelativePoint point1 = balloonPointHashMap.get(o1);
                     RelativePoint point2 = balloonPointHashMap.get(o2);
 
-                    if (point1.getOriginalPoint().y < point2.getOriginalPoint().y){
+                    if (point1.getOriginalPoint().y < point2.getOriginalPoint().y) {
                         return 1;
-                    }
-                    else if (point1.getOriginalPoint().y == point2.getOriginalPoint().y){
+                    } else if (point1.getOriginalPoint().y == point2.getOriginalPoint().y) {
                         return 0;
-                    }
-                    else{
+                    } else {
                         return -1;
                     }
                 }
             });
 
-            for (int i = 0, balloonsSize = balloons.size(); i < balloonsSize; i++){
+            for (int i = 0, balloonsSize = balloons.size(); i < balloonsSize; i++) {
                 Balloon balloon = balloons.get(i);
                 RelativePoint point = balloonPointHashMap.get(balloon);
                 balloon.show(point, Balloon.Position.above);
@@ -385,22 +430,23 @@ public class QuickJumpAction extends AnAction{
 
         }
 
-        private void hideBalloons(){
-            for (Balloon balloon1 : balloons){
+        private void hideBalloons() {
+            for (Balloon balloon1 : balloons) {
                 balloon1.dispose();
             }
             balloons.clear();
             hashMap.clear();
         }
 
-        @Override public Dimension getPreferredSize(){
-            return new Dimension(100, 20);
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(20, 20);
         }
 
         @Nullable
-        protected java.util.List<Integer> findAllVisible(){
+        protected java.util.List<Integer> findAllVisible() {
             final PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-            if (psiFile == null){
+            if (psiFile == null) {
                 return null;
             }
 
@@ -418,23 +464,23 @@ public class QuickJumpAction extends AnAction{
             int offset = document.getLineStartOffset((int) linesAbove);
             int endLine = (int) (linesAbove + visibleLines);
             int lineCount = document.getLineCount() - 1;
-            if (endLine > lineCount){
+            if (endLine > lineCount) {
                 endLine = lineCount;
             }
             int endOffset = document.getLineEndOffset(endLine);
 
-            while (offset < endOffset){
-
+            while (offset < endOffset) {
 
                 FindResult result = findManager.findString(text, offset, findModel, virtualFile);
-                if (!result.isStringFound()){
+                if (!result.isStringFound()) {
                     break;
                 }
 
+                System.out.println("result: " + result.toString());
 
                 UsageInfo2UsageAdapter usageAdapter = new UsageInfo2UsageAdapter(new UsageInfo(psiFile, result.getStartOffset(), result.getEndOffset()));
                 Point point = editor.logicalPositionToXY(editor.offsetToLogicalPosition(usageAdapter.getUsageInfo().getNavigationOffset()));
-                if (visibleArea.contains(point)){
+                if (visibleArea.contains(point)) {
                     UsageInfo usageInfo = usageAdapter.getUsageInfo();
                     offsets.add(usageInfo.getNavigationOffset());
                 }
@@ -444,27 +490,26 @@ public class QuickJumpAction extends AnAction{
                 offset = result.getEndOffset();
 
 
-                if (prevOffset == offset){
+                if (prevOffset == offset) {
                     ++offset;
                 }
             }
-
-
 
             return offsets;
         }
     }
 
 
-    protected String[] calcWords(final String prefix, Editor editor){
+    protected String[] calcWords(final String prefix, Editor editor) {
         final NameUtil.MinusculeMatcher matcher = (NameUtil.MinusculeMatcher) NameUtil.buildMatcher(prefix, 0, true, true);
         final Set<String> words = new HashSet<String>();
         CharSequence chars = editor.getDocument().getCharsSequence();
 
-        IdTableBuilding.scanWords(new IdTableBuilding.ScanWordProcessor(){
-            public void run(final CharSequence chars, final int start, final int end){
+        IdTableBuilding.scanWords(new IdTableBuilding.ScanWordProcessor() {
+            public void run(final CharSequence chars, final int start, final int end) {
                 final String word = chars.subSequence(start, end).toString();
-                if (matcher.matches(word)){
+                if (matcher.matches(word)) {
+                    System.out.println("word: " + word);
                     words.add(word);
                 }
             }
