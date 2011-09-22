@@ -1,36 +1,57 @@
 package com.johnlindquist.quickjump;
 
+import com.intellij.application.options.colors.ColorAndFontDescription;
+import com.intellij.application.options.colors.ColorAndFontOptions;
+import com.intellij.application.options.colors.FontOptions;
+import com.intellij.application.options.editor.EditorOptions;
+import com.intellij.application.options.editor.EditorOptionsProviderEP;
 import com.intellij.find.FindManager;
 import com.intellij.find.FindModel;
 import com.intellij.find.FindResult;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.VisualPosition;
+import com.intellij.openapi.editor.*;
+import com.intellij.openapi.editor.actions.EditorActionUtil;
+import com.intellij.openapi.editor.colors.EditorColorsScheme;
+import com.intellij.openapi.editor.colors.EditorFontType;
+import com.intellij.openapi.editor.colors.impl.EditorColorsManagerImpl;
 import com.intellij.openapi.editor.impl.DocumentImpl;
 import com.intellij.openapi.editor.impl.EditorImpl;
 import com.intellij.openapi.editor.impl.FoldingModelImpl;
 import com.intellij.openapi.editor.impl.ScrollingModelImpl;
+import com.intellij.openapi.extensions.Extensions;
+import com.intellij.openapi.fileEditor.FileEditor;
+import com.intellij.openapi.options.AbstractSchemesManager;
+import com.intellij.openapi.options.SchemesManagerFactoryImpl;
+import com.intellij.openapi.options.SchemesManagerImpl;
+import com.intellij.openapi.options.newEditor.OptionsEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.*;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.codeStyle.CodeStyleScheme;
+import com.intellij.psi.codeStyle.CodeStyleSchemes;
 import com.intellij.psi.codeStyle.NameUtil;
 import com.intellij.psi.impl.cache.impl.id.IdTableBuilding;
+import com.intellij.psi.impl.source.codeStyle.CodeStyleSchemeImpl;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.ui.popup.AbstractPopup;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.usages.UsageInfo2UsageAdapter;
 import com.intellij.util.ArrayUtil;
+import com.intellij.util.ui.BlockBorder;
+import com.sun.awt.AWTUtilities;
+import org.jdesktop.swingx.border.MatteBorderExt;
 import org.jetbrains.annotations.Nullable;
+import org.omg.CORBA.CompletionStatusHelper;
 
 import javax.swing.*;
 import javax.swing.Timer;
 import javax.swing.border.AbstractBorder;
+import javax.swing.border.MatteBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.plaf.metal.MetalBorders;
@@ -60,6 +81,9 @@ public class QuickJumpAction extends AnAction {
     protected SearchBox searchBox;
     protected DataContext dataContext;
     protected AnActionEvent inputEvent;
+    private CaretModel caretModel;
+    private Font font;
+    private SelectionModel selectionModel;
 
     public void actionPerformed(AnActionEvent e) {
         inputEvent = e;
@@ -70,23 +94,24 @@ public class QuickJumpAction extends AnAction {
         document = (DocumentImpl) editor.getDocument();
         foldingModel = (FoldingModelImpl) editor.getFoldingModel();
         dataContext = e.getDataContext();
-
+        caretModel = editor.getCaretModel();
+        selectionModel = editor.getSelectionModel();
 
         findManager = FindManager.getInstance(project);
         findModel = createFindModel(findManager);
 
+//        font = editor.getComponent().getFont();
 
+        font = new Font("Arial", Font.BOLD, 11);
         searchBox = new SearchBox();
 
+        searchBox.setFont(font);
         searchBox.setSize(searchBox.getPreferredSize());
 
         ComponentPopupBuilder popupBuilder = JBPopupFactory.getInstance().createComponentPopupBuilder(searchBox, searchBox);
         popup = (AbstractPopup) popupBuilder.createPopup();
 
-        JComponent content = popup.getContent();
-
-        content.setBorder(new AbstractBorder() {
-        });
+        popup.getContent().setBorder(new BlockBorder());
 
         popup.show(guessBestLocation(editor));
         popup.addListener(new JBPopupAdapter() {
@@ -96,7 +121,10 @@ public class QuickJumpAction extends AnAction {
             }
         });
         searchBox.requestFocus();
+
+        searchBox.findText(0);
     }
+
 
     protected FindModel createFindModel(FindManager findManager) {
         FindModel clone = (FindModel) findManager.getFindInFileModel().clone();
@@ -115,7 +143,7 @@ public class QuickJumpAction extends AnAction {
     public RelativePoint guessBestLocation(Editor editor) {
         VisualPosition logicalPosition = editor.getCaretModel().getVisualPosition();
         RelativePoint pointFromVisualPosition = getPointFromVisualPosition(editor, logicalPosition);
-        pointFromVisualPosition.getOriginalPoint().translate(0, -searchBox.getHeight());
+        pointFromVisualPosition.getOriginalPoint().translate(-4, -searchBox.getHeight());
         return pointFromVisualPosition;
     }
 
@@ -147,8 +175,6 @@ public class QuickJumpAction extends AnAction {
         protected List<Integer> results;
         protected int startResult;
         protected int endResult;
-        private boolean isJumping = false;
-        private boolean isSearchSingleChar;
 
         private SearchBox() {
 
@@ -206,7 +232,7 @@ public class QuickJumpAction extends AnAction {
 
         private void checkKeyAndMove() {
 
-            if (key >= 0 && key < 10 && !getText().equals("")) {
+            if (key >= 0 && key < 10) {
                 final Integer offset = hashMap.get(key);
                 if (offset != null) {
                     popup.cancel();
@@ -216,13 +242,11 @@ public class QuickJumpAction extends AnAction {
         }
 
         private void startSingleCharSearch() {
-            isSearchSingleChar = true;
-            findText(true, 0);
+            findText(0);
         }
 
         private void startFindText() {
 
-            boolean allow = true;
             int delay = 100;
 
             String text = getText();
@@ -235,14 +259,13 @@ public class QuickJumpAction extends AnAction {
 //            System.out.println("the single char is: " + text);
 
             if (length == 0) {
-                isSearchSingleChar = false;
                 return;
             }
 
             if (length == 1) {
                 char c = text.charAt(0);
                 if (!Character.isDigit(c) && !Character.isLetter(c)) {
-                    findText(allow, delay);
+                    findText(delay);
                 }
                 return;
             }
@@ -253,14 +276,13 @@ public class QuickJumpAction extends AnAction {
             }
 
             if (length == 2) {
-                isSearchSingleChar = false;
                 delay = 250;
             }
 
-            findText(allow, delay);
+            findText(delay);
         }
 
-        private void findText(final boolean allow, int delay) {
+        private void findText(int delay) {
 
             cancelFindText();
 
@@ -268,8 +290,17 @@ public class QuickJumpAction extends AnAction {
                 @Override
                 public void actionPerformed(ActionEvent e) {
 
-                    System.out.println(getText());
-                    findModel.setStringToFind(getText());
+                    String text = getText();
+                    findModel.setRegularExpressions(false);
+                    if (text.equals("")) {
+                        text = document.getText(new TextRange(getWordAtCaretStart(), getWordAtCaretEnd()));
+                    }
+                    if (text.equals("")) {
+                        return;
+                    }
+
+                    System.out.println(text);
+                    findModel.setStringToFind(text);
 
                     ApplicationManager.getApplication().runReadAction(new Runnable() {
                         @Override
@@ -294,13 +325,15 @@ public class QuickJumpAction extends AnAction {
                         @Override
                         public int compare(Integer o1, Integer o2) {
 
-                            RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1));
-                            RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2));
-                            Point o1P = o1Point.getOriginalPoint();
-                            Point o2P = o2Point.getOriginalPoint();
-
-                            double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
-                            double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
+//                            RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1));
+//                            RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2));
+//                            Point o1P = o1Point.getOriginalPoint();
+//                            Point o2P = o2Point.getOriginalPoint();
+//
+//                            double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
+//                            double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
+                            int i1 = Math.abs(caretOffset - o1);
+                            int i2 = Math.abs(caretOffset - o2);
                             if (i1 > i2) {
                                 return 1;
                             } else if (i1 == i2) {
@@ -327,7 +360,7 @@ public class QuickJumpAction extends AnAction {
 
         private void findCamelCase() {
             String text = getText();
-            if (text.length() == 1) return;
+            if (text.length() < 2) return;
             String[] strings = calcWords(text, editor);
             for (String string : strings) {
                 findModel.setStringToFind(string);
@@ -363,7 +396,7 @@ public class QuickJumpAction extends AnAction {
                 point.getOriginalPoint().translate(0, -editor.getLineHeight() / 2);
 
                 JPanel jPanel = new JPanel(new GridLayout());
-                jPanel.setBackground(Color.WHITE);
+                jPanel.setBackground(new Color(255, 255, 255));
                 int mnemoicNumber = i % ALLOWED_RESULTS;
                 String text = String.valueOf(mnemoicNumber);
                 if (i % ALLOWED_RESULTS == 0) {
@@ -371,9 +404,9 @@ public class QuickJumpAction extends AnAction {
                 }
 
                 JLabel jLabel = new JLabel(text);
-                Font jLabelFont = new Font(jLabel.getFont().getName(), Font.BOLD, 11);
-                jLabel.setFont(jLabelFont);
-                jLabel.setBackground(Color.LIGHT_GRAY);
+//                Font jLabelFont = new Font(jLabel.getFont().getName(), Font.BOLD, 11);
+                jLabel.setFont(font);
+                jLabel.setBackground(new Color(192, 192, 192));
                 jLabel.setHorizontalAlignment(CENTER);
                 jLabel.setFocusable(false);
                 jLabel.setSize(jLabel.getWidth(), 5);
@@ -394,12 +427,12 @@ public class QuickJumpAction extends AnAction {
                 balloonBuilder.setHideOnClickOutside(true);
                 balloonBuilder.setHideOnKeyOutside(true);
                 balloonBuilder.setHideOnAction(true);
-                balloonBuilder.setFillColor(new Color(0xdddddd));
-                balloonBuilder.setBorderColor(new Color(0x888888));
+                balloonBuilder.setFillColor(new Color(221, 221, 221));
+                balloonBuilder.setBorderColor(new Color(136, 136, 136));
 
                 Balloon balloon = balloonBuilder.createBalloon();
-
                 balloonPointHashMap.put(balloon, point);
+
 
                 balloons.add(balloon);
                 hashMap.put(mnemoicNumber, textOffset);
@@ -461,13 +494,15 @@ public class QuickJumpAction extends AnAction {
 
             double visibleLines = visibleArea.getHeight() / editor.getLineHeight() + 4;
 
-            int offset = document.getLineStartOffset((int) linesAbove);
+            int offset = 0;
+            int endOffset = 0;
+            offset = document.getLineStartOffset((int) linesAbove);
             int endLine = (int) (linesAbove + visibleLines);
             int lineCount = document.getLineCount() - 1;
             if (endLine > lineCount) {
                 endLine = lineCount;
             }
-            int endOffset = document.getLineEndOffset(endLine);
+            endOffset = document.getLineEndOffset(endLine);
 
             while (offset < endOffset) {
 
@@ -476,13 +511,16 @@ public class QuickJumpAction extends AnAction {
                     break;
                 }
 
-                System.out.println("result: " + result.toString());
+//                System.out.println("result: " + result.toString());
 
                 UsageInfo2UsageAdapter usageAdapter = new UsageInfo2UsageAdapter(new UsageInfo(psiFile, result.getStartOffset(), result.getEndOffset()));
                 Point point = editor.logicalPositionToXY(editor.offsetToLogicalPosition(usageAdapter.getUsageInfo().getNavigationOffset()));
                 if (visibleArea.contains(point)) {
                     UsageInfo usageInfo = usageAdapter.getUsageInfo();
-                    offsets.add(usageInfo.getNavigationOffset());
+                    int navigationOffset = usageInfo.getNavigationOffset();
+                    if (navigationOffset != caretModel.getOffset()) {
+                        offsets.add(navigationOffset);
+                    }
                 }
 
 
@@ -519,6 +557,45 @@ public class QuickJumpAction extends AnAction {
         Collections.sort(sortedWords);
 
         return ArrayUtil.toStringArray(sortedWords);
+    }
+
+    int getWordAtCaretStart() {
+        Document document = editor.getDocument();
+        int offset = editor.getCaretModel().getOffset();
+        if (offset == 0) return 0;
+        int lineNumber = editor.getCaretModel().getLogicalPosition().line;
+        CharSequence text = document.getCharsSequence();
+        int newOffset = offset;
+        int minOffset = lineNumber > 0 ? document.getLineEndOffset(lineNumber - 1) : 0;
+        boolean camel = editor.getSettings().isCamelWords();
+        for (; newOffset > minOffset; newOffset--) {
+            if (EditorActionUtil.isWordStart(text, newOffset, camel)) break;
+        }
+
+        return newOffset;
+    }
+
+    int getWordAtCaretEnd() {
+        Document document = editor.getDocument();
+        int offset = editor.getCaretModel().getOffset();
+
+        CharSequence text = document.getCharsSequence();
+        if (offset >= document.getTextLength() - 1 || document.getLineCount() == 0) return offset;
+
+        int newOffset = offset + 1;
+
+        int lineNumber = editor.getCaretModel().getLogicalPosition().line;
+        int maxOffset = document.getLineEndOffset(lineNumber);
+        if (newOffset > maxOffset) {
+            if (lineNumber + 1 >= document.getLineCount()) return offset;
+            maxOffset = document.getLineEndOffset(lineNumber + 1);
+        }
+        boolean camel = editor.getSettings().isCamelWords();
+        for (; newOffset < maxOffset; newOffset++) {
+            if (EditorActionUtil.isWordEnd(text, newOffset, camel)) break;
+        }
+
+        return newOffset;
     }
 
 }
