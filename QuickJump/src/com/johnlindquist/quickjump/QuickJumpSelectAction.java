@@ -13,9 +13,7 @@ import java.util.List;
  */
 public class QuickJumpSelectAction extends QuickJumpAction{
 
-    @Override protected void moveCaret(Integer offset){
-        super.moveCaret(offset);
-
+    @Override protected void completeCaretMove(Integer offset){
         selectWordAtCaret();
     }
 

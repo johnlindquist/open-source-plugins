@@ -3,11 +3,7 @@ package com.johnlindquist.quickjump;
 import com.intellij.codeInsight.editorActions.SelectWordUtil;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.impl.ActionManagerImpl;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.keymap.impl.keyGestures.GestureActionEvent;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.testFramework.TestActionEvent;
-import org.jdesktop.swingx.action.ActionFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,9 +16,7 @@ import java.util.List;
 public class QuickJumpSmartCompletionAction extends QuickJumpAction {
 
     @Override
-    protected void moveCaret(Integer offset) {
-        super.moveCaret(offset);
-
+    protected void completeCaretMove(Integer offset){
         selectWordAtCaret();
 
         ActionManager actionManager = ActionManagerImpl.getInstance();

@@ -1,20 +1,37 @@
 package com.johnlindquist.quickjump;
 
+import java.awt.event.KeyEvent;
+
 /**
  * User: John Lindquist
  * Date: 9/8/11
  * Time: 12:10 AM
  */
-public class QuickJumpSelectFromCaretAction extends QuickJumpAction{
+public class QuickJumpSelectFromCaretAction extends QuickJumpAction {
 
-    @Override protected void moveCaret(Integer offset){
+
+    private int offsetModifier;
+
+    @Override
+    protected void moveCaret(Integer offset) {
+
+    }
+
+    @Override
+    protected void applyModifier(KeyEvent e) {
+        offsetModifier = 0;
+        if (e.isAltDown()) {
+            offsetModifier += 1;
+        }
+    }
+
+    @Override
+    protected void completeCaretMove(Integer offset) {
         editor.getSelectionModel().removeSelection();
-        int caretOffset = editor.getCaretModel().getOffset();
-        if(offset < caretOffset){
+        int caretOffset = caretModel.getOffset();
+        if (offset < caretOffset) {
             offset = offset + searchBox.getText().length();
         }
-        editor.getCaretModel().moveToOffset(offset);
-
-        editor.getSelectionModel().setSelection(caretOffset, offset + searchBox.getText().length());
+        editor.getSelectionModel().setSelection(caretOffset, offset + offsetModifier);
     }
 }

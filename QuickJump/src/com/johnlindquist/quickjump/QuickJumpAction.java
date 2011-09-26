@@ -1,60 +1,39 @@
 package com.johnlindquist.quickjump;
 
-import com.intellij.application.options.colors.ColorAndFontDescription;
-import com.intellij.application.options.colors.ColorAndFontOptions;
-import com.intellij.application.options.colors.FontOptions;
-import com.intellij.application.options.editor.EditorOptions;
-import com.intellij.application.options.editor.EditorOptionsProviderEP;
 import com.intellij.find.FindManager;
 import com.intellij.find.FindModel;
 import com.intellij.find.FindResult;
 import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.actionSystem.impl.ActionManagerImpl;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.editor.*;
-import com.intellij.openapi.editor.actions.EditorActionUtil;
-import com.intellij.openapi.editor.colors.EditorColorsScheme;
-import com.intellij.openapi.editor.colors.EditorFontType;
-import com.intellij.openapi.editor.colors.impl.EditorColorsManagerImpl;
+import com.intellij.openapi.application.Result;
+import com.intellij.openapi.command.WriteCommandAction;
+import com.intellij.openapi.editor.CaretModel;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.VisualPosition;
 import com.intellij.openapi.editor.impl.DocumentImpl;
 import com.intellij.openapi.editor.impl.EditorImpl;
 import com.intellij.openapi.editor.impl.FoldingModelImpl;
 import com.intellij.openapi.editor.impl.ScrollingModelImpl;
-import com.intellij.openapi.extensions.Extensions;
-import com.intellij.openapi.fileEditor.FileEditor;
-import com.intellij.openapi.options.AbstractSchemesManager;
-import com.intellij.openapi.options.SchemesManagerFactoryImpl;
-import com.intellij.openapi.options.SchemesManagerImpl;
-import com.intellij.openapi.options.newEditor.OptionsEditor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.*;
-import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.codeStyle.CodeStyleScheme;
-import com.intellij.psi.codeStyle.CodeStyleSchemes;
 import com.intellij.psi.codeStyle.NameUtil;
 import com.intellij.psi.impl.cache.impl.id.IdTableBuilding;
-import com.intellij.psi.impl.source.codeStyle.CodeStyleSchemeImpl;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.ui.popup.AbstractPopup;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.usages.UsageInfo2UsageAdapter;
 import com.intellij.util.ArrayUtil;
 import com.intellij.util.ui.BlockBorder;
-import com.sun.awt.AWTUtilities;
-import org.jdesktop.swingx.border.MatteBorderExt;
 import org.jetbrains.annotations.Nullable;
-import org.omg.CORBA.CompletionStatusHelper;
 
 import javax.swing.*;
 import javax.swing.Timer;
-import javax.swing.border.AbstractBorder;
-import javax.swing.border.MatteBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.plaf.metal.MetalBorders;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -81,9 +60,8 @@ public class QuickJumpAction extends AnAction {
     protected SearchBox searchBox;
     protected DataContext dataContext;
     protected AnActionEvent inputEvent;
-    private CaretModel caretModel;
+    protected CaretModel caretModel;
     private Font font;
-    private SelectionModel selectionModel;
 
     public void actionPerformed(AnActionEvent e) {
         inputEvent = e;
@@ -95,14 +73,13 @@ public class QuickJumpAction extends AnAction {
         foldingModel = (FoldingModelImpl) editor.getFoldingModel();
         dataContext = e.getDataContext();
         caretModel = editor.getCaretModel();
-        selectionModel = editor.getSelectionModel();
 
         findManager = FindManager.getInstance(project);
         findModel = createFindModel(findManager);
 
 //        font = editor.getComponent().getFont();
 
-        font = new Font("Arial", Font.BOLD, 11);
+        font = new Font("Verdana", Font.BOLD, 11);
         searchBox = new SearchBox();
 
         searchBox.setFont(font);
@@ -143,27 +120,88 @@ public class QuickJumpAction extends AnAction {
     public RelativePoint guessBestLocation(Editor editor) {
         VisualPosition logicalPosition = editor.getCaretModel().getVisualPosition();
         RelativePoint pointFromVisualPosition = getPointFromVisualPosition(editor, logicalPosition);
-        pointFromVisualPosition.getOriginalPoint().translate(-4, -searchBox.getHeight());
+        pointFromVisualPosition.getOriginalPoint().translate(-4, -searchBox.getHeight() - editor.getLineHeight() + 2);
         return pointFromVisualPosition;
     }
 
     protected RelativePoint getPointFromVisualPosition(Editor editor, VisualPosition logicalPosition) {
         Point p = editor.visualPositionToXY(new VisualPosition(logicalPosition.line + 1, logicalPosition.column));
-
-        final Rectangle visibleArea = editor.getScrollingModel().getVisibleArea();
-        if (!visibleArea.contains(p)) {
-            p = new Point((visibleArea.x + visibleArea.width) / 2, (visibleArea.y + visibleArea.height) / 2);
-        }
-
         return new RelativePoint(editor.getContentComponent(), p);
     }
 
     protected void moveCaret(Integer offset) {
+        editor.getCaretModel().moveToOffset(offset);
+//        editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
+    }
+
+    protected void addNewLineAfterCaret() {
+        ActionManager actionManager = ActionManagerImpl.getInstance();
+        final AnAction action = actionManager.getAction(IdeActions.ACTION_EDITOR_START_NEW_LINE);
+        AnActionEvent event = new AnActionEvent(null, editor.getDataContext(), IdeActions.ACTION_EDITOR_START_NEW_LINE, inputEvent.getPresentation(), ActionManager.getInstance(), 0);
+        action.actionPerformed(event);
+    }
+
+    protected void addNewLineBeforeCaret() {
+        ActionManager actionManager = ActionManagerImpl.getInstance();
+        AnAction action = actionManager.getAction(IdeActions.ACTION_EDITOR_MOVE_CARET_UP);
+        AnActionEvent event = new AnActionEvent(null, editor.getDataContext(), IdeActions.ACTION_EDITOR_COMPLETE_STATEMENT, inputEvent.getPresentation(), ActionManager.getInstance(), 0);
+        action.actionPerformed(event);
+
+        addNewLineAfterCaret();
+    }
+
+    protected void addSpaceBeforeCaret() {
+        addSpace();
+        moveCaretRight();
+    }
+
+    private void addSpace() {
+        ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            @Override
+            public void run() {
+                document.insertString(caretModel.getOffset(), " ");
+            }
+        });
+    }
+
+    protected void addSpaceAfterCaret() {
+        moveCaretRight();
+        addSpaceBeforeCaret();
+    }
+
+    private void moveCaretRight() {
+        ActionManager actionManager = ActionManagerImpl.getInstance();
+        AnAction action = actionManager.getAction(IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT);
+        AnActionEvent event = new AnActionEvent(null, editor.getDataContext(), IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT, inputEvent.getPresentation(), ActionManager.getInstance(), 0);
+        action.actionPerformed(event);
+    }
+
+    private void moveCaretLeft() {
+        ActionManager actionManager = ActionManagerImpl.getInstance();
+        AnAction action = actionManager.getAction(IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT);
+        AnActionEvent event = new AnActionEvent(null, editor.getDataContext(), IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT, inputEvent.getPresentation(), ActionManager.getInstance(), 0);
+        action.actionPerformed(event);
+    }
+
+    protected void applyModifier(KeyEvent e) {
+        if (e.isShiftDown() && e.isControlDown()) {
+            addNewLineBeforeCaret();
+        } else if (e.isAltDown() && e.isControlDown()) {
+            addSpaceBeforeCaret();
+        } else if (e.isControlDown()) {
+            addNewLineAfterCaret();
+        } else if (e.isAltDown()) {
+            addSpaceAfterCaret();
+        }
+    }
+
+    protected void completeCaretMove(Integer offset) {
+    }
+
+    protected void clearSelection() {
         searchBox.cancelFindText();
         popup.cancel();
         editor.getSelectionModel().removeSelection();
-        editor.getCaretModel().moveToOffset(offset);
-//        editor.getScrollingModel().scrollToCaret(ScrollType.CENTER);
     }
 
     protected class SearchBox extends JTextField {
@@ -175,16 +213,19 @@ public class QuickJumpAction extends AnAction {
         protected List<Integer> results;
         protected int startResult;
         protected int endResult;
+        private SearchArea searchArea;
 
         private SearchBox() {
 
             addKeyListener(new KeyAdapter() {
                 @Override
-                public void keyPressed(KeyEvent e) {
+                public void keyPressed(final KeyEvent e) {
                     char keyChar = e.getKeyChar();
                     key = Character.getNumericValue(keyChar);
+                    int keyCode = e.getKeyCode();
 
-                    if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown() && e.isShiftDown()) {
+                    boolean isEnterKey = keyCode == KeyEvent.VK_ENTER;
+                    if (keyCode == KeyEvent.VK_F3 && e.isShiftDown()) {
                         startResult -= ALLOWED_RESULTS;
                         endResult -= ALLOWED_RESULTS;
                         if (startResult < 0) {
@@ -194,21 +235,41 @@ public class QuickJumpAction extends AnAction {
                             endResult = ALLOWED_RESULTS;
                         }
                         showBalloons(results, startResult, endResult);
-                    } else if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown()) {
+                    } else if (keyCode == KeyEvent.VK_F3) {
                         startResult += ALLOWED_RESULTS;
                         endResult += ALLOWED_RESULTS;
                         showBalloons(results, startResult, endResult);
-                    } else if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    } else if (isEnterKey) {
                         key = 0;
                         if (getText().length() == 1) {
                             startSingleCharSearch();
                         }
                     }
-                }
 
-                @Override
-                public void keyTyped(KeyEvent e) {
-                    checkKeyAndMove();
+
+                    System.out.println("value: " + key + " code " + keyCode + " char " + e.getKeyChar() + " location: " + e.getKeyLocation());
+                    if (keyCode >= 48 && keyCode < 58 || isEnterKey) {
+                        System.out.println("---------passed: " + "value: " + key + " code " + keyCode + " char " + e.getKeyChar() + " location: " + e.getKeyLocation());
+                        int keyValue = keyCode - 48;
+                        if (isEnterKey) keyValue = 0;
+
+                        final Integer offset = hashMap.get(keyValue);
+                        if (offset != null) {
+                            clearSelection();
+                            moveCaret(offset);
+                            new WriteCommandAction(project) {
+                                @Override
+                                protected void run(Result result) throws Throwable {
+                                    applyModifier(e);
+                                }
+                            }.execute();
+                            try {
+                                completeCaretMove(offset);
+                            } catch (Exception e1) {
+                                e1.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                            }
+                        }
+                    }
                 }
             });
 
@@ -228,17 +289,6 @@ public class QuickJumpAction extends AnAction {
                 }
             });
 
-        }
-
-        private void checkKeyAndMove() {
-
-            if (key >= 0 && key < 10) {
-                final Integer offset = hashMap.get(key);
-                if (offset != null) {
-                    popup.cancel();
-                    moveCaret(offset);
-                }
-            }
         }
 
         private void startSingleCharSearch() {
@@ -291,20 +341,15 @@ public class QuickJumpAction extends AnAction {
                 public void actionPerformed(ActionEvent e) {
 
                     String text = getText();
-                    findModel.setRegularExpressions(false);
-                    if (text.equals("")) {
-                        text = document.getText(new TextRange(getWordAtCaretStart(), getWordAtCaretEnd()));
-                    }
-                    if (text.equals("")) {
-                        return;
-                    }
-
-                    System.out.println(text);
                     findModel.setStringToFind(text);
 
                     ApplicationManager.getApplication().runReadAction(new Runnable() {
                         @Override
                         public void run() {
+                            searchArea = new SearchArea();
+                            searchArea.invoke();
+                            if (searchArea.getPsiFile() == null) return;
+
                             results = findAllVisible();
 
                             //camelCase logic
@@ -312,44 +357,50 @@ public class QuickJumpAction extends AnAction {
                         }
 
                     });
-                    //clear duplicates (optimize?)
-                    HashSet hashSet = new HashSet();
-                    hashSet.addAll(results);
-                    results.clear();
-                    results.addAll(hashSet);
 
-                    final int caretOffset = editor.getCaretModel().getOffset();
-                    RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
-                    final Point cP = caretPoint.getOriginalPoint();
-                    Collections.sort(results, new Comparator<Integer>() {
+                    ApplicationManager.getApplication().invokeLater(new Runnable() {
                         @Override
-                        public int compare(Integer o1, Integer o2) {
+                        public void run() {
+//                            System.out.println("results: " + results);
 
-//                            RelativePoint o1Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o1));
-//                            RelativePoint o2Point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(o2));
-//                            Point o1P = o1Point.getOriginalPoint();
-//                            Point o2P = o2Point.getOriginalPoint();
-//
-//                            double i1 = Point.distance(o1P.x, o1P.y, cP.x, cP.y);
-//                            double i2 = Point.distance(o2P.x, o2P.y, cP.x, cP.y);
-                            int i1 = Math.abs(caretOffset - o1);
-                            int i2 = Math.abs(caretOffset - o2);
-                            if (i1 > i2) {
-                                return 1;
-                            } else if (i1 == i2) {
-                                return 0;
-                            } else {
-                                return -1;
-                            }
+                            final int caretOffset = editor.getCaretModel().getOffset();
+                            RelativePoint caretPoint = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(caretOffset));
+                            final Point cP = caretPoint.getOriginalPoint();
+                            int lineNumber = document.getLineNumber(caretOffset);
+                            final int lineStartOffset = document.getLineStartOffset(lineNumber);
+                            final int lineEndOffset = document.getLineEndOffset(lineNumber);
+
+
+                            Collections.sort(results, new Comparator<Integer>() {
+                                @Override
+                                public int compare(Integer o1, Integer o2) {
+                                    int i1 = Math.abs(caretOffset - o1);
+                                    int i2 = Math.abs(caretOffset - o2);
+                                    boolean o1OnSameLine = o1 >= lineStartOffset && o1 <= lineEndOffset;
+                                    boolean o2OnSameLine = o2 >= lineStartOffset && o2 <= lineEndOffset;
+
+                                    if (i1 > i2) {
+                                        if (!o2OnSameLine && o1OnSameLine) {
+                                            return  -1;
+                                        }
+                                        return 1;
+                                    } else if (i1 == i2) {
+                                        return 0;
+                                    } else {
+                                        if (!o1OnSameLine && o2OnSameLine) {
+                                            return 1;
+                                        }
+                                        return -1;
+                                    }
+                                }
+                            });
+
+                            startResult = 0;
+                            endResult = ALLOWED_RESULTS;
+
+                            showBalloons(results, startResult, endResult);//To change body of implemented methods use File | Settings | File Templates.
                         }
                     });
-
-
-                    startResult = 0;
-                    endResult = ALLOWED_RESULTS;
-
-                    showBalloons(results, startResult, endResult);
-
                 }
             });
 
@@ -393,7 +444,9 @@ public class QuickJumpAction extends AnAction {
 
                 int textOffset = results.get(i);
                 RelativePoint point = getPointFromVisualPosition(editor, editor.offsetToVisualPosition(textOffset));
-                point.getOriginalPoint().translate(0, -editor.getLineHeight() / 2);
+                Point originalPoint = point.getOriginalPoint();
+                originalPoint.translate(0, -editor.getLineHeight() / 2);
+//                System.out.println(originalPoint.getX() + " " + originalPoint.getY());
 
                 JPanel jPanel = new JPanel(new GridLayout());
                 jPanel.setBackground(new Color(255, 255, 255));
@@ -478,36 +531,22 @@ public class QuickJumpAction extends AnAction {
 
         @Nullable
         protected java.util.List<Integer> findAllVisible() {
-            final PsiFile psiFile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-            if (psiFile == null) {
-                return null;
-            }
+//            System.out.println("----- findAllVisible");
+            int offset = searchArea.getOffset();
+            int endOffset = searchArea.getEndOffset();
+            CharSequence text = searchArea.getText();
+            PsiFile psiFile = searchArea.getPsiFile();
+            Rectangle visibleArea = searchArea.getVisibleArea();
 
-            CharSequence text = document.getCharsSequence();
-            final List<Integer> offsets = new ArrayList<Integer>();
 
-            JViewport viewport = editor.getScrollPane().getViewport();
-            double linesAbove = viewport.getViewPosition().getY() / editor.getLineHeight();
-
-            ScrollingModelImpl scrollingModel = (ScrollingModelImpl) editor.getScrollingModel();
-            Rectangle visibleArea = scrollingModel.getVisibleArea();
-
-            double visibleLines = visibleArea.getHeight() / editor.getLineHeight() + 4;
-
-            int offset = 0;
-            int endOffset = 0;
-            offset = document.getLineStartOffset((int) linesAbove);
-            int endLine = (int) (linesAbove + visibleLines);
-            int lineCount = document.getLineCount() - 1;
-            if (endLine > lineCount) {
-                endLine = lineCount;
-            }
-            endOffset = document.getLineEndOffset(endLine);
-
+            List<Integer> offsets = new ArrayList<Integer>();
             while (offset < endOffset) {
+//                System.out.println("offset: " + offset + "/" + endOffset);
 
+//                System.out.println("Finding: " + findModel.getStringToFind() + " = " + offset);
                 FindResult result = findManager.findString(text, offset, findModel, virtualFile);
                 if (!result.isStringFound()) {
+//                    System.out.println(findModel.getStringToFind() + ": not found");
                     break;
                 }
 
@@ -519,7 +558,10 @@ public class QuickJumpAction extends AnAction {
                     UsageInfo usageInfo = usageAdapter.getUsageInfo();
                     int navigationOffset = usageInfo.getNavigationOffset();
                     if (navigationOffset != caretModel.getOffset()) {
-                        offsets.add(navigationOffset);
+                        if (!results.contains(navigationOffset)) {
+//                            System.out.println("Adding: " + navigationOffset + "-> " + usageAdapter.getPlainText());
+                            offsets.add(navigationOffset);
+                        }
                     }
                 }
 
@@ -535,6 +577,67 @@ public class QuickJumpAction extends AnAction {
 
             return offsets;
         }
+
+        public class SearchArea {
+            private PsiFile psiFile;
+            private CharSequence text;
+            private Rectangle visibleArea;
+            private int offset;
+            private int endOffset;
+
+            public PsiFile getPsiFile() {
+                return psiFile;
+            }
+
+            public CharSequence getText() {
+                return text;
+            }
+
+            public Rectangle getVisibleArea() {
+                return visibleArea;
+            }
+
+            public int getOffset() {
+                return offset;
+            }
+
+            public int getEndOffset() {
+                return endOffset;
+            }
+
+            public void invoke() {
+                psiFile = PsiDocumentManager.getInstance(project).getPsiFile(document);
+                if (psiFile == null) {
+                    return;
+                }
+
+                text = document.getCharsSequence();
+
+                JViewport viewport = editor.getScrollPane().getViewport();
+                double viewportY = viewport.getViewPosition().getY();
+
+                ScrollingModelImpl scrollingModel = (ScrollingModelImpl) editor.getScrollingModel();
+                visibleArea = scrollingModel.getVisibleArea();
+
+                double height = visibleArea.getHeight();
+                //TODO: Can this be more accurate?
+                double linesAbove = viewportY / editor.getLineHeight();
+                height += editor.getLineHeight() * 4;
+                double visibleLines = height / editor.getLineHeight();
+                double padding = 20;
+                visibleLines += padding;
+                //            System.out.println("visibleLines: " + visibleLines);
+
+                if (linesAbove < 0) linesAbove = 0;
+                offset = document.getLineStartOffset((int) linesAbove);
+                int endLine = (int) (linesAbove + visibleLines);
+                int lineCount = document.getLineCount() - 1;
+                if (endLine > lineCount) {
+                    endLine = lineCount;
+                }
+                endOffset = document.getLineEndOffset(endLine);
+            }
+        }
     }
 
 
@@ -547,7 +650,6 @@ public class QuickJumpAction extends AnAction {
             public void run(final CharSequence chars, final int start, final int end) {
                 final String word = chars.subSequence(start, end).toString();
                 if (matcher.matches(word)) {
-                    System.out.println("word: " + word);
                     words.add(word);
                 }
             }
@@ -558,44 +660,4 @@ public class QuickJumpAction extends AnAction {
 
         return ArrayUtil.toStringArray(sortedWords);
     }
-
-    int getWordAtCaretStart() {
-        Document document = editor.getDocument();
-        int offset = editor.getCaretModel().getOffset();
-        if (offset == 0) return 0;
-        int lineNumber = editor.getCaretModel().getLogicalPosition().line;
-        CharSequence text = document.getCharsSequence();
-        int newOffset = offset;
-        int minOffset = lineNumber > 0 ? document.getLineEndOffset(lineNumber - 1) : 0;
-        boolean camel = editor.getSettings().isCamelWords();
-        for (; newOffset > minOffset; newOffset--) {
-            if (EditorActionUtil.isWordStart(text, newOffset, camel)) break;
-        }
-
-        return newOffset;
-    }
-
-    int getWordAtCaretEnd() {
-        Document document = editor.getDocument();
-        int offset = editor.getCaretModel().getOffset();
-
-        CharSequence text = document.getCharsSequence();
-        if (offset >= document.getTextLength() - 1 || document.getLineCount() == 0) return offset;
-
-        int newOffset = offset + 1;
-
-        int lineNumber = editor.getCaretModel().getLogicalPosition().line;
-        int maxOffset = document.getLineEndOffset(lineNumber);
-        if (newOffset > maxOffset) {
-            if (lineNumber + 1 >= document.getLineCount()) return offset;
-            maxOffset = document.getLineEndOffset(lineNumber + 1);
-        }
-        boolean camel = editor.getSettings().isCamelWords();
-        for (; newOffset < maxOffset; newOffset++) {
-            if (EditorActionUtil.isWordEnd(text, newOffset, camel)) break;
-        }
-
-        return newOffset;
-    }
-
 }
