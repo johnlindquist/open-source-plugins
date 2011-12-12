@@ -24,47 +24,48 @@
     ctrl+alt+# Space Before
     ]]>
     </description>
-    <change-notes>
-
-        &lt;dl&gt;
-            &lt;dt&gt;4.2.1&lt;/dt&gt;
-            &lt;dd&gt;Updating version support in manifest.&lt;/dd&gt;
-            &lt;dt&gt;4.2&lt;/dt&gt;
-            &lt;dd&gt;Favoring results on the same line over closer results on other lines.&lt;/dd&gt;
-            &lt;dt&gt;4.1&lt;/dt&gt;
-            &lt;dd&gt;Added ctrl+shift+alt+; to "Select from Caret". Hitting alt while selecting selects the space after your selection.&lt;/dd&gt;
-            &lt;dt&gt;4.0&lt;/dt&gt;
-            &lt;dd&gt;Added jump modifiers. Add line above/below and and space before/after&lt;/dd&gt;
-            &lt;dt&gt;3.2&lt;/dt&gt;
-            &lt;dd&gt;Minor optimizations and minor bug fixes for edges cases &lt;/dd&gt;
-            &lt;dt&gt;3.1&lt;/dt&gt;
-            &lt;dd&gt;Support for Intellij 11 EAP, Webstorm 3 EAP, etc (108.XXX). Special characters now invoke quickjump on
-                the first keystroke.&lt;/dd&gt;
-            &lt;dt&gt;3.0&lt;/dt&gt;
-            &lt;dd&gt;Adding a ctrl+alt+; which automatically opens code completion&lt;/dd&gt;
-            &lt;dt&gt;2.0&lt;/dt&gt;
-            &lt;dd&gt;Added camelCase searching. Also, ctrl+shift+; start a quick jump that will select the entire word when
-                you make your target selection&lt;/dd&gt;
-            &lt;dt&gt;1.1.1&lt;/dt&gt;
-            &lt;dd&gt;Fixed minor bug where if you already had text selected, it didn't deselect before jumping.&lt;/dd&gt;
-            &lt;dt&gt;1.1&lt;/dt&gt;
-            &lt;dd&gt;You can now expand your search with ctrl+Enter. Adjusting popup sizes.&lt;/dd&gt;
-            &lt;dt&gt;1.0&lt;/dt&gt;
-            &lt;dd&gt;Initial Release&lt;/dd&gt;
-        &lt;/dl&gt;
-
+    <change-notes><![CDATA[
+        <html>
+        <dl>
+            <dt>4.3</dt>
+            <dd>Fixing bug introduced with latest Intellij v11 eap</dd>
+            <dt>4.2</dt>
+            <dd>Favoring results on the same line over closer results on other lines.</dd>
+            <dt>4.1</dt>
+            <dd>Added ctrl+shift+alt+; to "Select from Caret". Hitting alt while selecting selects the space after your selection.</dd>
+            <dt>4.0</dt>
+            <dd>Added jump modifiers. Add line above/below and and space before/after</dd>
+            <dt>3.2</dt>
+            <dd>Minor optimizations and minor bug fixes for edges cases </dd>
+            <dt>3.1</dt>
+            <dd>Support for Intellij 11 EAP, Webstorm 3 EAP, etc (108.XXX). Special characters now invoke quickjump on
+                the first keystroke.</dd>
+            <dt>3.0</dt>
+            <dd>Adding a ctrl+alt+; which automatically opens code completion</dd>
+            <dt>2.0</dt>
+            <dd>Added camelCase searching. Also, ctrl+shift+; start a quick jump that will select the entire word when
+                you make your target selection</dd>
+            <dt>1.1.1</dt>
+            <dd>Fixed minor bug where if you already had text selected, it didn't deselect before jumping.</dd>
+            <dt>1.1</dt>
+            <dd>You can now expand your search with ctrl+Enter. Adjusting popup sizes.</dd>
+            <dt>1.0</dt>
+            <dd>Initial Release</dd>
+        </dl>
+        </html>
+        ]]>
     </change-notes>
 
     <depends>com.intellij.modules.platform</depends>
 
-    <version>4.2.1</version>
+    <version>4.3</version>
     <category>Navigation</category>
     <vendor url="http://johnlindquist.com"
             email="johnlindquist@gmail.com">johnlindquist
     </vendor>
 
 
-    <idea-version since-build="108.1333"/>
+    <idea-version since-build="110.365"/>
 
     <project-components>
         <!-- Add your project components here -->

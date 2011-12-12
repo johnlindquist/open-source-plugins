@@ -647,8 +647,9 @@ public class QuickJumpAction extends AnAction {
         CharSequence chars = editor.getDocument().getCharsSequence();
 
         IdTableBuilding.scanWords(new IdTableBuilding.ScanWordProcessor() {
-            public void run(final CharSequence chars, final int start, final int end) {
-                final String word = chars.subSequence(start, end).toString();
+            @Override
+            public void run(CharSequence charSequence, @Nullable char[] chars, int start, int end) {
+                final String word = charSequence.subSequence(start, end).toString();
                 if (matcher.matches(word)) {
                     words.add(word);
                 }
