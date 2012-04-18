@@ -82,7 +82,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
     private UsagesRequestValues[] values = new UsagesRequestValues[]{mediatorMapValues, commandMapValues, signalCommandMapValues, injectorValues};
     private ContentManager contentManager;
 
-    @Override public void createToolWindowContent(Project project, ToolWindow toolWindow)
+    public void createToolWindowContent(Project project, ToolWindow toolWindow)
     {
         this.project = project;
         contentManager = toolWindow.getContentManager();
@@ -256,17 +256,17 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             this.rowNames = rowNames;
         }
 
-        @Override public int getRowCount()
+        public int getRowCount()
         {
             return rowNames.size();
         }
 
-        @Override public int getColumnCount()
+        public int getColumnCount()
         {
             return 5;
         }
 
-        @Override public Object getValueAt(int rowIndex, int columnIndex)
+        public Object getValueAt(int rowIndex, int columnIndex)
         {
 
             Vector rows = rowNames.get(rowIndex);
@@ -290,7 +290,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             this.itemUnderMouse = itemUnderMouse;
         }
 
-        @Override public void run()
+        public void run()
         {
             JSClass editorClass = JSPsiImplUtils.findClass((JSFile) targetFile);
             JSClass jsClass = (JSClass) itemUnderMouse;
@@ -349,7 +349,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             {
                 CommandProcessor.getInstance().executeCommand(project, new Runnable()
                 {
-                    @Override public void run()
+                    public void run()
                     {
                         ApplicationManager.getApplication().runWriteAction(new InjectSelectedClassIntoEditorClass(targetFile, itemUnderMouse));
                     }

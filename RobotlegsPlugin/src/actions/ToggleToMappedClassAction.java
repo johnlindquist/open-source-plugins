@@ -90,7 +90,6 @@ public class ToggleToMappedClassAction extends AnAction
         final JBList list = new JBList(model);
         list.setCellRenderer(new ListCellRenderer()
         {
-            @Override
             public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus)
             {
                 @SuppressWarnings({"unchecked"})
@@ -113,7 +112,7 @@ public class ToggleToMappedClassAction extends AnAction
 
         list.getSelectionModel().addListSelectionListener(new ListSelectionListener()
         {
-            @Override public void valueChanged(ListSelectionEvent e)
+            public void valueChanged(ListSelectionEvent e)
             {
                 Object source = e.getSource();
                 System.out.println(source.toString());
