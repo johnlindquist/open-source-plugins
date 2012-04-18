@@ -3,6 +3,7 @@ package utils;
 import com.intellij.find.FindManager;
 import com.intellij.find.findUsages.FindUsagesHandler;
 import com.intellij.find.findUsages.FindUsagesManager;
+import com.intellij.find.findUsages.FindUsagesOptions;
 import com.intellij.find.impl.FindManagerImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
@@ -38,7 +39,8 @@ public class FindUsagesUtils
 
         FindUsagesManager findUsagesManager = ((FindManagerImpl) FindManager.getInstance(project)).getFindUsagesManager();
         FindUsagesHandler findUsagesHandler = findUsagesManager.getFindUsagesHandler(psiElement, false);
-        findUsagesManager.processUsages(findUsagesHandler, collect);
+        FindUsagesOptions findUsagesOptions = findUsagesHandler.getFindUsagesOptions();
+        findUsagesManager.processUsages(findUsagesHandler, collect, findUsagesOptions);
         return usages;
     }
 }
