@@ -21,7 +21,7 @@ public class CreateEventAndCommandPairAction extends CreateElementActionBase
         return PsiElement.EMPTY_ARRAY;
     }
 
-    @Override protected void checkBeforeCreate(String s, PsiDirectory psiDirectory) throws IncorrectOperationException
+    protected void checkBeforeCreate(String s, PsiDirectory psiDirectory) throws IncorrectOperationException
     {
         //To change body of implemented methods use File | Settings | File Templates.
     }

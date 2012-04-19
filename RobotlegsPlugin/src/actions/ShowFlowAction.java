@@ -3,6 +3,7 @@ package actions;
 import com.intellij.find.FindManager;
 import com.intellij.find.findUsages.FindUsagesHandler;
 import com.intellij.find.findUsages.FindUsagesManager;
+import com.intellij.find.findUsages.FindUsagesOptions;
 import com.intellij.find.impl.FindManagerImpl;
 import com.intellij.lang.javascript.JSTokenTypes;
 import com.intellij.lang.javascript.psi.JSFile;
@@ -136,7 +137,8 @@ public class ShowFlowAction extends AnAction
 
         FindUsagesManager findUsagesManager = ((FindManagerImpl) FindManager.getInstance(project)).getFindUsagesManager();
         FindUsagesHandler findUsagesHandler = findUsagesManager.getFindUsagesHandler(psiElement, false);
-        findUsagesManager.processUsages(findUsagesHandler, collect);
+        FindUsagesOptions findUsagesOptions = findUsagesHandler.getFindUsagesOptions();
+        findUsagesManager.processUsages(findUsagesHandler, collect, findUsagesOptions);
         return usages;
     }
 

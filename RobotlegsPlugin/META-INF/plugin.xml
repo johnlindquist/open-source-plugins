@@ -19,6 +19,8 @@
     <change-notes><![CDATA[
         <html>
         <dl>
+            <dt>0.4</dt>
+            <dd>Fixed for IntelliJ 11.1.1</dd><br>
             <dt>0.3</dt>
             <dd>Added switching between mapped classes with ctrl+shift+G (think "Go to mapped class"). Next steps: I
                 need to clean up the code base before taking it any further, then start work on code generation.</dd><br>
@@ -31,7 +33,7 @@
         </dl>
         </html>
         ]]></change-notes>
-    <version>0.3</version>
+    <version>0.4</version>
     <category>ActionScript</category>
     <vendor url="http://johnlindquist.com" email="johnlindquist@gmail.com">johnlindquist</vendor>
 
