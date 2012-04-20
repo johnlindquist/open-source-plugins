@@ -12,7 +12,6 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ui.componentsList.layout.VerticalStackLayout;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindow;
@@ -27,10 +26,13 @@ import com.intellij.ui.content.ContentFactory;
 import com.intellij.ui.content.ContentManager;
 import com.intellij.ui.table.JBTable;
 import com.intellij.usages.UsageInfo2UsageAdapter;
+import com.intellij.util.ui.ColumnInfo;
+import com.intellij.util.ui.SortableColumnModel;
 import utils.RobotlegsMappingUtils;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Vector;
@@ -42,6 +44,7 @@ import java.util.Vector;
  */
 public class BrowserToolWindowFactory implements ToolWindowFactory
 {
+    private static final String[] COLUMN_TITLES = new String[]{"Filename", "Column 1", "Column 2", "Column 3", "Column 4"};
 
     //extract Strings to config
     private static final String MEDIATOR_MAP = "org.robotlegs.core.IMediatorMap";
@@ -112,10 +115,11 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         {
             AbstractTableModel tableModel = new MappingsTableModel(names);
             final JBTable table = new JBTable(tableModel);
-
             table.setCellSelectionEnabled(true);
+            table.setAutoCreateRowSorter(true);
+
             JPanel jPanel = new JPanel();
-            jPanel.setLayout(new VerticalStackLayout());
+            jPanel.setLayout(new BorderLayout());
             JButton button = new JButton(REFRESH_ALL, IconLoader.getIcon("/vcs/refresh.png"));
             button.addMouseListener(new MouseAdapter()
             {
@@ -124,12 +128,14 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
                     refreshValues();
                 }
             });
-            jPanel.add(button);
-            jPanel.add(table);
-            JBScrollPane jbScrollPane = new JBScrollPane(jPanel);
+            jPanel.add(button, BorderLayout.NORTH);
+
+            JBScrollPane jbScrollPane = new JBScrollPane(table);
             jbScrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
-            Content content = ContentFactory.SERVICE.getInstance().createContent(jbScrollPane, tableName, false);
+            jPanel.add(jbScrollPane, BorderLayout.CENTER);
+
+            Content content = ContentFactory.SERVICE.getInstance().createContent(jPanel, tableName, false);
             contentManager.addContent(content);
 
             table.addMouseListener(new MyMouseAdapter(table, dataRows, project));
@@ -166,7 +172,7 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
                 dataColumn.add(mapping);
             }
 
-              names.add(column);
+            names.add(column);
             dataRows.add(dataColumn);
         }
     }
@@ -191,11 +197,38 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             Object selectionName = table.getValueAt(row, column);
             System.out.print(selectionName + "\n");
 
-            Vector vector = dataRows.get(row);
             Object itemUnderMouse = null;
-            if (column < vector.size())
+
+            for (Vector rowVector : dataRows)
             {
-                itemUnderMouse = vector.get(column);
+                if (column < rowVector.size())
+                {
+                    Object columnItem = rowVector.get(column);
+                    String itemName = "";
+
+                    if (columnItem instanceof UsageInfo2UsageAdapter)
+                    {
+                        UsageInfo2UsageAdapter usageAdapter = (UsageInfo2UsageAdapter) columnItem;
+                        itemName = usageAdapter.getElement().getContainingFile().getName();
+                    }
+
+                    if (columnItem instanceof PsiNamedElement)
+                    {
+                        PsiNamedElement psiElement = (PsiNamedElement) columnItem;
+                        itemName = psiElement.getName();
+                    }
+                    else if (columnItem instanceof PsiElement)
+                    {
+                        PsiElement psiElement = (PsiElement) columnItem;
+                        itemName = psiElement.getText();
+                    }
+
+                    if (itemName.equals(selectionName))
+                    {
+                        itemUnderMouse = columnItem;
+                        break;
+                    }
+                }
             }
 
             if (SwingUtilities.isLeftMouseButton(e))
@@ -230,7 +263,6 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
                 popupMenu.getComponent().show(table, table.getMousePosition().x, table.getMousePosition().y);
 
             }
-
         }
     }
 
@@ -246,9 +278,8 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
         return group;
     }
 
-    private static class MappingsTableModel extends AbstractTableModel
+    private static class MappingsTableModel extends AbstractTableModel implements SortableColumnModel
     {
-
         private final Vector<Vector> rowNames;
 
         public MappingsTableModel(Vector<Vector> rowNames)
@@ -266,9 +297,14 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
             return 5;
         }
 
+        @Override
+        public String getColumnName(int column)
+        {
+            return COLUMN_TITLES[column];
+        }
+
         public Object getValueAt(int rowIndex, int columnIndex)
         {
-
             Vector rows = rowNames.get(rowIndex);
             //if there isn't enough data to fill the column, then return ""
             if (columnIndex < rows.size())
@@ -276,6 +312,36 @@ public class BrowserToolWindowFactory implements ToolWindowFactory
                 return rows.get(columnIndex);
             }
             return "";
+        }
+
+        @Override
+        public Class<?> getColumnClass(int columnIndex) {
+            return String.class;
+        }
+
+        public ColumnInfo[] getColumnInfos()
+        {
+            return new ColumnInfo[0];  //To change body of implemented methods use File | Settings | File Templates.
+        }
+
+        public void setSortable(boolean b)
+        {
+            //To change body of implemented methods use File | Settings | File Templates.
+        }
+
+        public boolean isSortable()
+        {
+            return true;
+        }
+
+        public Object getRowValue(int i)
+        {
+            return null;  //To change body of implemented methods use File | Settings | File Templates.
+        }
+
+        public RowSorter.SortKey getDefaultSortKey()
+        {
+            return null;  //To change body of implemented methods use File | Settings | File Templates.
         }
     }
 
