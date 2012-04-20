@@ -19,6 +19,8 @@
     <change-notes><![CDATA[
         <html>
         <dl>
+            <dt>0.4.1</dt>
+            <dd>Added simple sort for all columns</dd><br>
             <dt>0.4</dt>
             <dd>Fixed for IntelliJ 11.1.1</dd><br>
             <dt>0.3</dt>
